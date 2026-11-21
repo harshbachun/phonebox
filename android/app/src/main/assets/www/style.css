@@ -1283,3 +1283,92 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 
 /* text for screen readers only (an icon-only element keeps its meaning) */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- A52 fork: Discord as a whole page (W.discord with layout: 'page') ---------- */
+.w-discord.dcp-box { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+.dcp {
+  --dc-panel: #111214; --dc-raised: #1e1f22; --dc-tile: #232428; --dc-line: rgba(255, 255, 255, .06);
+  --dc-text: #f2f3f5; --dc-muted: #949ba4; --dc-green: #23a55a; --dc-red: #f23f43; --dc-hang: #da373c; --dc-blurple: #5865f2;
+  height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 34%); gap: 8px; color: var(--dc-text);
+  font-family: "gg sans", "Noto Sans", Roboto, system-ui, sans-serif;
+}
+.dcp-i { display: inline-flex; width: 1em; height: 1em; flex: none; }
+.dcp-i svg { width: 100%; height: 100%; display: block; }
+.dcp-i.red { color: var(--dc-red); }
+
+/* left: user panel, stage, call bar */
+.dcp-call { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; background: var(--dc-panel); border-radius: 16px; padding: 12px 14px 10px; }
+.dcp-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dcp-name { font-size: 19px; font-weight: 800; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcp-where { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--dc-muted); min-width: 0; }
+.dcp-where.on { color: var(--dc-green); }
+.dcp-where .dcp-i { font-size: 15px; }
+.dcp-wtext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dcp-stage { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 8px; overflow: hidden; }
+.dcp-stage.idle { display: flex; }
+.dcp-tile { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: var(--dc-tile); border-radius: 12px; padding: 8px; }
+.dcp-av { width: clamp(40px, 34cqmin, 76px); aspect-ratio: 1; border-radius: 50%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: var(--dc-blurple); color: #fff; font-weight: 700; font-size: clamp(16px, 12cqmin, 30px); }
+.dcp-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dcp-tile.quiet .dcp-av { opacity: .6; }
+.dcp-tname { display: flex; align-items: center; gap: 5px; max-width: 100%; font-size: 13px; font-weight: 600; }
+.dcp-tname > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dcp-tname .dcp-i { font-size: 14px; }
+.dcp-idle { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--dc-tile); border-radius: 12px; text-align: center; padding: 10px; }
+.dcp-idle b { font-size: 17px; }
+.dcp-idle span { font-size: 13px; color: var(--dc-muted); }
+.dcp-bar { display: flex; justify-content: center; align-items: center; gap: 10px; }
+.dcp-group { display: flex; gap: 2px; background: var(--dc-raised); border: 1px solid var(--dc-line); border-radius: 14px; padding: 4px; }
+.dcp-cb, .dcp-leave { display: inline-flex; align-items: center; justify-content: center; border: 0; font-size: 22px; height: 48px; min-width: 64px; border-radius: 10px; color: var(--dc-text); background: transparent; }
+.dcp-cb.on { color: var(--dc-red); }
+.dcp-leave { background: var(--dc-hang); color: #fff; min-width: 84px; height: 56px; border-radius: 14px; font-size: 26px; }
+.dcp-cb:active, .dcp-leave:active { transform: scale(.94); }
+.dcp-cb:active { background: rgba(255, 255, 255, .08); }
+.dcp-cb.busy, .dcp-leave.busy, .dcp-chan.busy { opacity: .5; }
+.dcp-cb:disabled, .dcp-leave:disabled { cursor: default; }
+
+/* right: the server rail */
+.dcp-side { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; background: var(--dc-panel); border-radius: 16px; padding: 10px 10px 10px 4px; overflow: hidden; }
+.dcp-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--dc-muted); padding: 0 0 2px 14px; }
+.dcp-server { position: relative; flex: 1 1 0; min-height: 0; max-height: 64px; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--dc-text); font: inherit; text-align: left; padding: 0 6px 0 14px; border-radius: 12px; }
+.dcp-server:active { background: rgba(255, 255, 255, .06); }
+.dcp-server.dim { opacity: .5; }
+.dcp-server.dim.here { opacity: .8; }
+/* Discord's sidebar pill: a short white bar beside the server you are in */
+.dcp-pill { position: absolute; left: 0; top: 50%; width: 4px; height: 0; border-radius: 0 4px 4px 0; background: #fff; transform: translateY(-50%); transition: height .15s; }
+.dcp-server.here .dcp-pill { height: 60%; }
+.dcp-gico { flex: none; width: clamp(34px, 11cqh, 46px); aspect-ratio: 1; border-radius: 30%; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: var(--dc-raised); color: var(--dc-text); font-weight: 700; font-size: 17px; }
+.dcp-gico img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dcp-gico.sm { width: 28px; font-size: 13px; }
+.dcp-stext { display: flex; flex-direction: column; min-width: 0; }
+.dcp-stext b { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcp-stext small { font-size: 11.5px; color: var(--dc-muted); }
+.dcp-server.here .dcp-stext small { color: var(--dc-green); }
+.dcp-back { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--dc-text); font: inherit; padding: 2px 6px 6px 8px; text-align: left; min-width: 0; }
+.dcp-back .dcp-i { font-size: 20px; color: var(--dc-muted); }
+.dcp-back b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dcp-chans { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-left: 8px; }
+.dcp-chan { display: flex; align-items: center; gap: 8px; min-height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--dc-muted); font: inherit; font-size: 14.5px; font-weight: 600; padding: 0 10px; text-align: left; }
+.dcp-chan > span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.dcp-chan .dcp-i { font-size: 17px; }
+.dcp-chan:active { background: rgba(255, 255, 255, .06); color: var(--dc-text); }
+.dcp-chan.cur { background: rgba(255, 255, 255, .08); color: var(--dc-text); }
+.dcp-chan.cur .dcp-i { color: var(--dc-green); }
+.dcp-chan small { font-size: 11px; background: var(--dc-raised); color: var(--dc-text); border-radius: 999px; padding: 1px 7px; }
+
+/* ---------- A52 fork: AI quotas as progress bars (W.quotas with style: 'bars') ---------- */
+.q-bars { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 10px; padding: 4px 2px; }
+.q-barrow { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.q-bar-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.q-bar-label { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.q-bar-pct { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.q-bar-pct small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.q-bar { --qc: var(--q, #94a3b8); position: relative; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, .08); }
+.q-bar.warn { --qc: #f59e0b; }
+.q-bar.crit { --qc: #ef4444; }
+.q-bar > i { display: block; height: 100%; border-radius: 6px; background: var(--qc); transition: width .4s ease; }
+/* where an even pace would be right now: left of it you are ahead of the window, right of it behind */
+.q-bar-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); opacity: .75; }
+.q-bar-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; min-width: 0; }
+.q-bar-foot .q-pace { margin-top: 0; font-size: 12px; text-align: right; }
+.q-bar-reset { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@container (max-height: 200px) { .q-bar-foot { display: none; } .q-bars { gap: 6px; } }

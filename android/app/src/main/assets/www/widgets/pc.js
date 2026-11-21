@@ -134,6 +134,7 @@ W.obs = {
 W.discord = {
   needs: ['tick'],
   create(box, { o }) {
+    if (o.layout === 'page') return discordPage(box, o);
     let data = null, lastKey = '', busy = null;
     const open = new Set(); // servers whose channels are unfolded
     // a round logo: the image once it has loaded, the first letter until then (and when there is no image)
@@ -219,6 +220,152 @@ W.discord = {
     return { update: () => { tick(); render(); } };
   },
 };
+
+// A52 fork: the Discord widget as a whole page, styled after Discord's own voice UI. Left: who you are, where you
+// are, the people in the call and a call bar (mute, deafen, disconnect). Right: your favourite servers in your own
+// order (options.favorites: names or ids; Discord does not share the sidebar order), the first `dimFrom - 1` at full
+// strength and the rest dimmed; tap one for its voice channels, tap a channel to join.
+const DCP_ICONS = {
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  micOff: '<path d="m2 2 20 20"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/>',
+  head: '<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>',
+  headOff: '<path d="M21 14h-1.343"/><path d="M9.128 3.47A9 9 0 0 1 21 12v3.343"/><path d="m2 2 20 20"/><path d="M20.414 20.414A2 2 0 0 1 19 21h-1a2 2 0 0 1-2-2v-3"/><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 2.636-6.364"/>',
+  hangup: '<path transform="rotate(135 12 12)" fill="currentColor" stroke="none" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  speaker: '<path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+};
+const dcpIcon = (name, cls = '') => {
+  const s = document.createElement('span');
+  s.className = 'dcp-i ' + cls;
+  s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DCP_ICONS[name]}</svg>`;
+  return s;
+};
+const dcpNorm = (s) => String(s || '').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+function discordPage(box, o) {
+  box.classList.add('dcp-box');
+  const favs = (Array.isArray(o.favorites) ? o.favorites : String(o.favorites || '').split('\n')).map((f) => String(f).trim()).filter(Boolean);
+  const dimFrom = Math.max(1, +o.dimFrom || 4);
+  let data = null, lastKey = '', busy = null, picked = null; // picked: the server whose channels are shown
+  const load = async () => { try { data = await api('/discord'); } catch (_) {} };
+  const img = (kind, id, hash) => `${API}/discord/img?kind=${kind}&id=${encodeURIComponent(id)}&hash=${encodeURIComponent(hash)}`;
+  const avatar = (src, name, cls) => {
+    const w = h('span', cls, (name || '?').trim().charAt(0).toUpperCase() || '?');
+    if (src) { const im = new Image(); im.alt = ''; im.onload = () => w.replaceChildren(im); im.src = src; }
+    return w;
+  };
+  const act = async (action, channel) => {
+    if (busy || !data?.control) return;
+    haptic();
+    busy = action + (channel || ''); render(true);
+    try {
+      const r = await fetch(`${API}/discord/${action}` + (channel ? '?channel=' + encodeURIComponent(channel) : ''), { method: 'POST', cache: 'no-store', headers: PANEL_HEADERS });
+      if (!r.ok) toast((await r.json().catch(() => ({}))).error || t('w.discord.failed'), 'err');
+    } catch (_) { toast(t('panel.pcNoAnswer'), 'err'); }
+    await new Promise((done) => setTimeout(done, 500));
+    await load(); busy = null; render(true);
+  };
+  // servers from the channel list, grouped by id, then your favourites in your order (fallback: the first five)
+  const servers = (s) => {
+    const all = new Map();
+    for (const c of s.channels) {
+      const gid = c.guildId || c.guild || 'other';
+      if (!all.has(gid)) all.set(gid, { id: gid, name: c.guild || 'Server', icon: c.guildIcon, chans: [] });
+      all.get(gid).chans.push(c);
+    }
+    const list = [...all.values()];
+    if (!favs.length) return list.slice(0, 5);
+    const out = [];
+    for (const f of favs) {
+      const nf = dcpNorm(f);
+      const g = list.find((x) => x.id === f) || list.find((x) => dcpNorm(x.name) === nf) || list.find((x) => nf && dcpNorm(x.name).includes(nf));
+      if (g && !out.includes(g)) out.push(g);
+    }
+    return out;
+  };
+  const render = (force = false) => {
+    const key = JSON.stringify([data, busy, picked, box.clientWidth, box.clientHeight]);
+    if (!force && key === lastKey) return;
+    lastKey = key;
+    if (!data) { box.replaceChildren(h('div', 'empty', t('w.loading'))); return; }
+    if (!data.enabled) { box.replaceChildren(h('div', 'empty', t('w.discord.turnOn'))); return; }
+    const s = data.snapshot;
+    if (!s.connected) { box.replaceChildren(h('div', 'empty', s.error || t('panel.connecting'))); return; }
+    const ctl = data.control;
+    const inCall = !!s.channelId;
+    const mine = servers(s);
+    const curChan = inCall ? s.channels.find((c) => c.id === s.channelId) : null;
+    const here = curChan ? mine.find((g) => g.id === (curChan.guildId || curChan.guild)) || null : null;
+
+    // the user panel (Discord's bottom-left card): name, and under it where you are and with whom
+    const names = s.members.map((m) => m.name).filter((n) => n !== s.user); // the others, like Discord's own line
+    const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
+    const head = h('div', 'dcp-head',
+      h('b', 'dcp-name', s.user || 'Discord'),
+      inCall
+        ? h('span', 'dcp-where on', dcpIcon('speaker'), h('span', 'dcp-wtext', [s.channelName, curChan?.guild].filter(Boolean).join(' / ') + (who ? ' · ' + who : '')))
+        : h('span', 'dcp-where', 'Not in a voice channel'));
+
+    // the call stage: one tile per person in the channel
+    const stage = h('div', 'dcp-stage' + (inCall ? '' : ' idle'));
+    if (inCall && s.members.length) {
+      stage.style.setProperty('--n', Math.min(s.members.length, 4));
+      stage.append(...s.members.map((m) => h('div', 'dcp-tile' + (m.muted || m.deafened ? ' quiet' : ''),
+        avatar(m.avatar && img('user', m.id, m.avatar), m.name, 'dcp-av'),
+        h('span', 'dcp-tname', h('span', null, m.name),
+          m.deafened ? dcpIcon('headOff', 'red') : m.muted ? dcpIcon('micOff', 'red') : null))));
+    } else if (inCall) {
+      stage.append(h('div', 'dcp-idle', h('b', null, s.channelName || 'Voice'), h('span', null, 'Just you here')));
+    } else {
+      stage.append(h('div', 'dcp-idle', h('b', null, 'Quiet for now'), h('span', null, 'Pick a server to join a voice channel')));
+    }
+
+    // the call bar: [mic | headphones]  [disconnect]
+    const cbtn = (name, onName, on, action, label) => {
+      const b = labelled(h('button', 'dcp-cb' + (on ? ' on' : '') + (busy === action ? ' busy' : ''), dcpIcon(on ? onName : name)), label);
+      if (ctl && !busy) b.addEventListener('click', () => act(action)); else b.disabled = true;
+      return b;
+    };
+    const bar = h('div', 'dcp-bar',
+      h('div', 'dcp-group',
+        cbtn('mic', 'micOff', s.muted, 'mute', t(s.muted ? 'w.a.unmuteMic' : 'w.a.muteMic')),
+        cbtn('head', 'headOff', s.deafened, 'deafen', t(s.deafened ? 'w.a.undeafen' : 'w.a.deafen'))));
+    if (inCall) {
+      const leave = labelled(h('button', 'dcp-leave' + (busy === 'leave' ? ' busy' : ''), dcpIcon('hangup')), t('w.a.leave'));
+      if (ctl && !busy) leave.addEventListener('click', () => act('leave')); else leave.disabled = true;
+      bar.append(leave);
+    }
+
+    // the server rail: your five, or one server's voice channels
+    const side = h('div', 'dcp-side');
+    const show = picked && mine.find((g) => g.id === picked);
+    if (show) {
+      const back = h('button', 'dcp-back', dcpIcon('back'), avatar(show.icon && img('guild', show.id, show.icon), show.name, 'dcp-gico sm'), h('b', null, show.name));
+      back.addEventListener('click', () => { haptic(); picked = null; render(true); });
+      side.append(back, h('div', 'dcp-chans', ...show.chans.map((c) => {
+        const cur = c.id === s.channelId;
+        const b = h('button', 'dcp-chan' + (cur ? ' cur' : '') + (busy === 'join' + c.id ? ' busy' : ''), dcpIcon('speaker'), h('span', null, c.name),
+          cur && s.members.length ? h('small', null, String(s.members.length)) : null);
+        if (ctl && !busy && !cur) b.addEventListener('click', () => act('join', c.id));
+        return b;
+      })));
+    } else {
+      side.append(h('div', 'dcp-label', 'Servers'));
+      if (!mine.length) side.append(h('div', 'empty', 'None of your favourite servers were found'));
+      side.append(...mine.map((g, i) => {
+        const b = h('button', 'dcp-server' + (i + 1 >= dimFrom ? ' dim' : '') + (g === here ? ' here' : ''),
+          h('span', 'dcp-pill'),
+          avatar(g.icon && img('guild', g.id, g.icon), g.name, 'dcp-gico'),
+          h('span', 'dcp-stext', h('b', null, g.name), h('small', null, t(g.chans.length === 1 ? 'w.discord.channel' : 'w.discord.channels', { n: g.chans.length }))));
+        b.addEventListener('click', () => { haptic(); picked = g.id; render(true); });
+        return b;
+      }));
+    }
+    box.replaceChildren(h('div', 'dcp', h('div', 'dcp-call', head, stage, bar), side));
+  };
+  const tick = every(1500, async () => { await load(); render(); });
+  return { update: () => { tick(); render(); } };
+}
 
 // Home Assistant entities through the agent (which holds the token). Tap a light, switch, scene… to switch it,
 // when the widget allows it.

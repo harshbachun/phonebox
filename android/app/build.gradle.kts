@@ -18,7 +18,7 @@ android {
         minSdk = 21 // Android 5.0; see CONTRIBUTING.md before changing it
         targetSdk = 35
         versionCode = 45
-        versionName = "0.9.24"
+        versionName = "0.9.24-a52"
     }
 
     signingConfigs {

@@ -420,6 +420,31 @@ W.meters = {
   },
 };
 
+// A52 fork: one AI provider's limits as horizontal bars: label and percent used, the bar with a tick where an even
+// pace would be (the share of the window elapsed), then when it resets and the pace verdict.
+function quotaBars(p) {
+  const rows = h('div', 'q-bars');
+  for (const l of p.limits) {
+    const pace = paceInfo(l);
+    const pct = Math.max(0, Math.min(100, l.percent));
+    const sev = l.percent >= 95 || l.severity === 'critical' ? ' crit' : l.percent >= 80 || l.severity === 'warning' ? ' warn' : '';
+    const fill = h('i');
+    fill.style.width = (pct > 0 ? Math.max(pct, 1) : 0) + '%'; // a sliver for 'a little', nothing for 0%
+    const bar = h('div', 'q-bar' + sev, fill);
+    if (pace && pace.elapsed > 0 && pace.elapsed < 1) {
+      const mark = h('b', 'q-bar-mark');
+      mark.style.left = (pace.elapsed * 100).toFixed(1) + '%';
+      bar.append(mark);
+    }
+    rows.append(h('div', 'q-barrow',
+      h('div', 'q-bar-top', h('span', 'q-bar-label', l.label), h('span', 'q-bar-pct', String(Math.round(l.percent)), h('small', null, '% used'))),
+      bar,
+      h('div', 'q-bar-foot', h('span', 'q-bar-reset', l.resetsAt ? fmtReset(l.resetsAt) : ''), pace ? h('span', 'q-pace ' + pace.cls, pace.text) : null)));
+  }
+  if (!p.limits.length) rows.append(h('div', 'q-bar-reset', 'No data'));
+  return rows;
+}
+
 W.quotas = {
   needs: ['quotas', 'tick'],
   /**
@@ -547,26 +572,30 @@ W.quotas = {
         card.style.flex = needsPaging && ps === 2 ? '1 1 0' : String(Math.max(1, p.limits.length) + 0.3);
         card.appendChild(h('div', 'q-head', h('span', 'q-logo', st.logo), h('span', 'q-name', p.name), h('span', 'q-plan', p.plan),
           p.updatedAt ? h('span', 'q-upd', fmtDur(Date.now() - p.updatedAt) + ' ago') : null));
-        const compact = p.limits.length >= 4;
-        const rings = h('div', 'q-rings' + (compact ? ' q-rings-grid' : ''));
-        for (const l of p.limits) {
-          const pace = paceInfo(l);
-          const dial = h('div', 'q-dial');
-          if (compact) {
-            dial.style.width = '86px';
-            dial.style.height = '86px';
+        // A52 fork: progress bars instead of rings (options.style = 'bars')
+        if (o.style === 'bars') card.append(quotaBars(p));
+        else {
+          const compact = p.limits.length >= 4;
+          const rings = h('div', 'q-rings' + (compact ? ' q-rings-grid' : ''));
+          for (const l of p.limits) {
+            const pace = paceInfo(l);
+            const dial = h('div', 'q-dial');
+            if (compact) {
+              dial.style.width = '86px';
+              dial.style.height = '86px';
+            }
+            if (l.percent >= 95 || l.severity === 'critical') dial.style.setProperty('--qc', '#ef4444');
+            else if (l.percent >= 80 || l.severity === 'warning') dial.style.setProperty('--qc', '#f59e0b');
+            dial.innerHTML = ringSvg(l.percent, pace?.elapsed); // numbers only
+            const pctEl = h('div', 'q-pct', String(Math.round(l.percent)), h('small', null, '%'));
+            if (compact) pctEl.style.fontSize = 'calc(22px * var(--widget-font-scale, 1))';
+            dial.appendChild(pctEl);
+            rings.appendChild(h('div', 'q-ring', dial, h('div', 'q-label', l.label), p.id === 'codex' ? h('div', 'q-left', `${Math.max(0, Math.round(100 - l.percent))}% left`) : null, h('div', 'q-reset', fmtReset(l.resetsAt)),
+              pace ? h('div', 'q-pace ' + pace.cls, pace.text) : null));
           }
-          if (l.percent >= 95 || l.severity === 'critical') dial.style.setProperty('--qc', '#ef4444');
-          else if (l.percent >= 80 || l.severity === 'warning') dial.style.setProperty('--qc', '#f59e0b');
-          dial.innerHTML = ringSvg(l.percent, pace?.elapsed); // numbers only
-          const pctEl = h('div', 'q-pct', String(Math.round(l.percent)), h('small', null, '%'));
-          if (compact) pctEl.style.fontSize = 'calc(22px * var(--widget-font-scale, 1))';
-          dial.appendChild(pctEl);
-          rings.appendChild(h('div', 'q-ring', dial, h('div', 'q-label', l.label), p.id === 'codex' ? h('div', 'q-left', `${Math.max(0, Math.round(100 - l.percent))}% left`) : null, h('div', 'q-reset', fmtReset(l.resetsAt)),
-            pace ? h('div', 'q-pace ' + pace.cls, pace.text) : null));
+          if (!p.limits.length) rings.appendChild(h('div', 'q-reset', 'No data'));
+          card.append(rings);
         }
-        if (!p.limits.length) rings.appendChild(h('div', 'q-reset', 'No data'));
-        card.append(rings);
         if (p.id === 'codex' && p.codex) {
           const c = p.codex;
           const details = h('div', 'q-details');
