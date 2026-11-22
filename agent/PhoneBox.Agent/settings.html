@@ -577,6 +577,28 @@ nav a.on::before { color: var(--accent); }
           <span class="hint" data-i18n="s.net.hint">None ticked = automatic (the connected Ethernet and Wi-Fi adapters). With a VPN that carries the same traffic, or a reading that looks too high, tick only the adapter you use.</span></div>
       </div>
 
+      <!-- A52 fork: the VALORANT page (ValorantHost.cs). English only; nothing here goes to the phone. -->
+      <div class="card">
+        <h3>VALORANT</h3>
+        <div class="row" style="margin-bottom:8px"><label class="switch"><input type="checkbox" data-bind="valorant.autoPage"><span></span></label> <span>Open the VALORANT page when the game starts, go back home when it exits</span></div>
+        <div class="row" style="gap:10px">
+          <div class="field" style="flex:1"><label>Page id</label><input type="text" data-bind="valorant.page" spellcheck="false" autocomplete="off"></div>
+          <div class="field" style="flex:1"><label>Medal clip hotkey</label><input type="text" data-bind="valorant.clipKey" placeholder="f10" spellcheck="false" autocomplete="off"></div>
+          <div class="field" style="flex:1"><label>Team voice key (held)</label><input type="text" data-bind="valorant.talkKey" placeholder="v" spellcheck="false" autocomplete="off"></div>
+        </div>
+        <div class="field"><label>Microphone for the mute toggle (empty = the Windows default recording device, else part of its name)</label>
+          <input type="text" data-bind="valorant.micDevice" spellcheck="false" autocomplete="off"></div>
+        <div class="field"><label>"Ping to my server": host or IP probed with ICMP every 2 seconds (empty = off)</label>
+          <input type="text" data-bind="valorant.pingHost" placeholder="off" spellcheck="false" autocomplete="off"></div>
+        <div class="row" style="gap:10px">
+          <div class="field" style="flex:2"><label>HenrikDev API key for post-match stats (api.henrikdev.xyz/dashboard)</label><input type="password" data-bind="valorant.statsApiKey" autocomplete="off"></div>
+          <div class="field" style="flex:1"><label>Region (empty = from the game's log)</label><input type="text" data-bind="valorant.statsRegion" placeholder="eu" spellcheck="false" autocomplete="off"></div>
+        </div>
+        <div class="field"><label>Map callout images folder (Ascent.png, Bind.jpg …; empty = %APPDATA%\PhoneBox\valorant-maps)</label>
+          <input type="text" data-bind="valorant.mapsFolder" spellcheck="false" autocomplete="off"></div>
+        <p class="hint" style="margin:8px 0 0">Hold to talk presses the voice key only while you hold the button, VALORANT is in front and the microphone is not muted; it lets go when you lift, when the phone disconnects or stops answering (about 1 s), and when VALORANT loses focus. Your own presence comes from the Riot Client on this PC; the API key and these settings stay on this computer.</p>
+      </div>
+
       <div class="card">
         <h3 data-i18n="s.calendars.title">Calendars</h3>
         <p class="hint" style="margin:0 0 12px" data-i18n-html="s.cal.hint">For the <b>Agenda</b> widget and calendar rules. Paste an iCalendar (ICS) address:

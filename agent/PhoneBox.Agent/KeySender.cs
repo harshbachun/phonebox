@@ -159,6 +159,10 @@ public static class KeySender
         return SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf<INPUT>()) == inputs.Count;
     }
 
+    /// <summary>A52 fork: one key down or one key up (hold to talk); false when Windows refused it.</summary>
+    public static bool KeyEdge(string key, bool down) =>
+        SendInput(1, [Key(WinVk(key), !down, WinExtended(key))], Marshal.SizeOf<INPUT>()) == 1;
+
     public static void TypeText(string text) => TryTypeText(text, CancellationToken.None);
 
     /// <summary>Types the text; false when Windows took none or only part of the input (SendInput doesn't wait).</summary>

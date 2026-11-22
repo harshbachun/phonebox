@@ -14,6 +14,8 @@ public sealed class AgentConfig
     public string? AdbPath { get; set; }
     public WeatherConfig Weather { get; set; } = new();
     public PingConfig Ping { get; set; } = new();
+    /// <summary>A52 fork: the Valorant page (clip / talk keys, mic, ping probe, match-history key). Never sent to the phone.</summary>
+    public ValorantConfig Valorant { get; set; } = new();
     public NightConfig Night { get; set; } = new();
     public DisplayConfig Display { get; set; } = new();
     public LanConfig Lan { get; set; } = new();
@@ -562,6 +564,8 @@ public sealed partial class ConfigStore(string path)
         c.Ping ??= new();
         c.Ping.Host = c.Ping.Host?.Trim() ?? "";
         if (c.Ping.Host.Length > 253 || c.Ping.Host.Any(ch => ch <= ' ' || ch > '~')) c.Ping.Host = PingMonitor.DefaultHost;
+        c.Valorant ??= new();
+        c.Valorant.Normalize();
         c.Claude ??= new();
         c.Claude.TimeoutSec = Math.Clamp(c.Claude.TimeoutSec, 10, 3600);
         c.Cursor ??= new();

@@ -1372,3 +1372,101 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .q-bar-foot .q-pace { margin-top: 0; font-size: 12px; text-align: right; }
 .q-bar-reset { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 @container (max-height: 200px) { .q-bar-foot { display: none; } .q-bars { gap: 6px; } }
+
+/* ---------- A52 fork: Valorant page (W.valorant) ---------- */
+.w-valorant.vl-box { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
+.vl-box { --vl-red: #ff4655; --vl-ink: #ece8e1; --vl-panel: #0f1923; --vl-panel-2: #16232f; --vl-line: rgba(236, 232, 225, .1); --vl-muted: #8b978f; --vl-green: #3ee6a3; --vl-amber: #f5b942; }
+.vl-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; color: var(--vl-ink); scrollbar-width: none; }
+.vl-scroll::-webkit-scrollbar { display: none; }
+.vl-i { display: inline-flex; width: 1em; height: 1em; flex: none; }
+.vl-i svg { width: 100%; height: 100%; display: block; }
+
+/* 1 · match status, modelled on Discord's Valorant Rich Presence card */
+.vl-match { flex: none; height: 64px; display: flex; align-items: center; gap: 12px; padding: 8px 14px 8px 8px; border-radius: 14px; background: var(--vl-panel); border: 1px solid var(--vl-line); text-align: left; }
+.vl-match.live { border-color: rgba(255, 70, 85, .55); }
+.vl-match.off { opacity: .75; }
+.vl-thumb { flex: none; width: 48px; height: 48px; border-radius: 10px; overflow: hidden; background: var(--vl-panel-2); display: grid; place-items: center; }
+.vl-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.vl-thumb-letter { font-size: 22px; font-weight: 800; color: var(--vl-red); }
+.vl-mtext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vl-brand { font-size: 10px; font-weight: 800; letter-spacing: .16em; color: var(--vl-red); }
+.vl-m1 { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vl-m2 { font-size: 13px; color: var(--vl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vl-match.live .vl-m2 { color: var(--vl-ink); font-weight: 600; }
+.vl-time { flex: none; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--vl-muted); }
+
+/* 2 · controls fill the rest of the first screen; Talk is the biggest and sits by the right thumb */
+.vl-controls { flex: none; height: calc(100cqh - 88px); min-height: 150px; display: grid; grid-template-columns: .8fr 1fr 1.35fr; gap: 8px; }
+.vl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 18px; border: 1px solid var(--vl-line);
+  background: var(--vl-panel); color: var(--vl-ink); font: inherit; text-align: center; padding: 10px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 0; }
+.vl-btn .vl-i, .vl-btn .vl-mute-icon { font-size: 40px; }
+.vl-btn b { font-size: 18px; font-weight: 800; letter-spacing: .02em; }
+.vl-btn small { font-size: 12px; color: var(--vl-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vl-btn:active { transform: scale(.97); }
+.vl-btn.busy { opacity: .6; }
+.vl-clip.done { border-color: var(--vl-green); color: var(--vl-green); }
+.vl-clip.err { border-color: var(--vl-red); color: var(--vl-red); }
+.vl-talk { background: #1b2a37; border-width: 2px; border-color: rgba(236, 232, 225, .22); }
+.vl-talk .vl-i { font-size: 52px; }
+.vl-talk b { font-size: 22px; }
+.vl-talk.held { border-color: var(--vl-amber); }
+.vl-talk.live { background: var(--vl-green); border-color: var(--vl-green); color: #06281b; }
+.vl-talk.live small { color: #0b3d29; }
+.vl-talk.blocked { border-color: var(--vl-amber); color: var(--vl-amber); }
+/* emergency mute: its own dashed outline, solid red with the word MUTED while muted */
+.vl-mute { border: 2px dashed rgba(255, 70, 85, .55); background: transparent; }
+.vl-mute.on { background: var(--vl-red); border: 2px solid var(--vl-red); color: #fff; }
+.vl-mute.on small { color: #ffe3e5; }
+.vl-mute.unknown { border-color: var(--vl-line); color: var(--vl-muted); }
+
+/* 3 · map, performance, ping */
+.vl-row { flex: none; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 8px; min-height: 0; }
+.vl-card { border-radius: 14px; background: var(--vl-panel); border: 1px solid var(--vl-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vl-h { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--vl-muted); }
+.vl-empty { font-size: 13px; color: var(--vl-muted); }
+.vl-note { font-size: 11px; color: var(--vl-muted); line-height: 1.35; }
+.vl-note.warn { color: var(--vl-amber); }
+.vl-map-img { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--vl-panel-2); }
+.vl-map-img img { width: 100%; height: 100%; object-fit: cover; }
+.vl-map-name { position: absolute; left: 8px; bottom: 6px; font-size: 14px; font-weight: 800; color: #fff; text-shadow: 0 1px 4px #000; }
+.vl-map-missing { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px dashed var(--vl-line); }
+.vl-map-missing b { font-size: 18px; }
+.vl-map-missing small { font-size: 12px; color: var(--vl-muted); }
+.vl-kvs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.vl-kv { display: flex; flex-direction: column; min-width: 0; }
+.vl-kv small { font-size: 11px; color: var(--vl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vl-kv b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vl-kv.warn b { color: var(--vl-amber); }
+.vl-kv.big b { font-size: 26px; }
+.vl-chart { height: 38px; }
+.vl-spark { width: 100%; height: 100%; display: block; overflow: visible; }
+.vl-spark path { fill: none; stroke: var(--vl-red); stroke-width: 2; }
+.vl-spark .vl-miss { stroke: rgba(245, 185, 66, .7); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.vl-vram { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+.vl-vram small { color: var(--vl-muted); }
+.vl-bar { height: 8px; border-radius: 4px; background: rgba(236, 232, 225, .08); overflow: hidden; }
+.vl-bar > i { display: block; height: 100%; width: 0; background: var(--vl-ink); border-radius: 4px; }
+
+/* 4 · post-match stats */
+.vl-stats { flex: none; margin-bottom: 18px; } /* clear of the page dots */
+.vl-refresh { border: 0; background: none; color: var(--vl-muted); font-size: 18px; padding: 0 2px; }
+.vl-last { display: flex; flex-direction: column; gap: 8px; }
+.vl-last-head { display: flex; align-items: baseline; gap: 10px; font-size: 13px; color: var(--vl-muted); }
+.vl-res { font-size: 18px; }
+.vl-res.win { color: var(--vl-green); }
+.vl-res.loss { color: var(--vl-red); }
+.vl-today { display: flex; align-items: baseline; gap: 8px; padding-top: 8px; border-top: 1px solid var(--vl-line); }
+.vl-today small { font-size: 12px; color: var(--vl-muted); }
+.vl-today b { font-size: 20px; }
+.vl-setup { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.vl-setup ul { margin: 0; padding-left: 18px; color: var(--vl-amber); }
+.vl-setup small { color: var(--vl-muted); }
+
+/* full-screen map viewer (pinch to zoom, double-tap, drag) */
+.vl-viewer { position: fixed; inset: 0; z-index: 60; background: #000; display: flex; }
+.vl-viewer-stage { flex: 1; display: grid; place-items: center; overflow: hidden; touch-action: none; }
+.vl-viewer-stage img { max-width: 100%; max-height: 100%; transform-origin: center; will-change: transform; }
+.vl-viewer-title { position: absolute; left: 16px; top: 10px; font-size: 16px; font-weight: 800; color: #ece8e1; text-shadow: 0 1px 4px #000; }
+.vl-viewer-close { position: absolute; right: 12px; top: 8px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: rgba(15, 25, 35, .8); color: #ece8e1; font-size: 24px; display: grid; place-items: center; }
+.vl-viewer-missing { color: #8b978f; font-size: 15px; }
+@container (max-width: 560px) { .vl-row { grid-template-columns: 1fr; } }

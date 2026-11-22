@@ -96,6 +96,7 @@ AddMonitor<ObsMonitor>(builder.Services);
 AddMonitor<DiscordMonitor>(builder.Services);
 AddMonitor<BatteryMonitor>(builder.Services);
 AddMonitor<RuleEngine>(builder.Services);
+AddMonitor<ValorantHost>(builder.Services); // A52 fork: the Valorant page
 AddMonitor<ChargeGuard>(builder.Services);
 builder.Services.AddHostedService<Tray>();
 
@@ -613,6 +614,22 @@ app.MapGet("/api/discord/img", async (string kind, string id, string hash, Disco
 app.MapPost("/api/discord/{action}", async (string action, string? channel, DiscordMonitor dc) =>
     await dc.ActAsync(action, channel) is { } error ? Results.BadRequest(new { error }) : Results.Ok(new { ok = true }));
 
+// A52 fork: the Valorant page (ValorantHost.cs). Your own presence, game mic, talk lease, clip hotkey, ping probe and
+// post-match stats; the HenrikDev key and other settings stay on this computer.
+app.MapGet("/api/valorant", (ValorantHost v) => Results.Json(v.Snapshot()));
+app.MapPost("/api/valorant/clip", (string? tap, ValorantHost v) => Results.Json(v.Clip(tap)));
+app.MapPost("/api/valorant/talk/down", (ValorantHost v) => Results.Json(new { lease = v.TalkBegin() }));
+app.MapPost("/api/valorant/talk/renew", (string lease, ValorantHost v) => v.TalkRenew(lease) ? Results.Ok(new { ok = true }) : Results.NotFound(new { error = "This hold has ended" }));
+app.MapPost("/api/valorant/talk/up", (string? lease, ValorantHost v) => { v.EndTalk(lease, "released on the phone"); return Results.Ok(new { ok = true }); });
+app.MapPost("/api/valorant/mic/toggle", (ValorantHost v) => Results.Json(v.ToggleMic()));
+app.MapPost("/api/valorant/stats/refresh", (ValorantHost v) => { v.RefreshStats(); return Results.Ok(new { ok = true }); });
+// The name goes in the query string: the Android app lets image requests through by exact path (READ_ONLY_IMAGES)
+app.MapGet("/api/valorant/map", (string name, ValorantHost v) =>
+    v.MapImage(name) is { } path ? Results.File(path, Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png", ".webp" => "image/webp", _ => "image/jpeg",
+    }) : Results.NotFound());
+
 // Battery levels of wireless devices (headphones, mice, keyboards…), for the Device batteries widget.
 app.MapGet("/api/batteries", (BatteryMonitor b) => Results.Json(new { devices = b.Snapshot() }));
 
@@ -669,9 +686,12 @@ app.MapGet("/api/stream", async (HttpContext ctx, PushStore push, SessionMonitor
     void OnPoke() { Volatile.Write(ref poked, 1); OnEmit(); }
     push.Emitted += OnEmit;
     StateSignal.Changed += OnPoke;
+    var valorant = ctx.RequestServices.GetRequiredService<ValorantHost>();
     try
     {
         var seq = push.Seq;
+        // A52 fork: after seq is taken, so a page switch the Valorant host owes this phone reaches it on this stream
+        if (isPhone) valorant.PhoneConnected();
         var lastWork = "";
         var next = 0L;
         var lastSpec = 0L;
@@ -724,6 +744,7 @@ app.MapGet("/api/stream", async (HttpContext ctx, PushStore push, SessionMonitor
     {
         push.Emitted -= OnEmit;
         StateSignal.Changed -= OnPoke;
+        if (isPhone) valorant.PhoneDisconnected(); // releases a held Talk key when no phone is left
         log.LogInformation("live stream closed ({Via})", via);
     }
 });
