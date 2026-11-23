@@ -17,6 +17,8 @@ const SVG = (inner, cls = '') => {
   return s;
 };
 const ICON = {
+  party: '<g fill="currentColor" stroke="none"><circle cx="9" cy="8" r="3.5"/><path d="M2 21v-2a7 7 0 0 1 14 0v2Z"/><circle cx="17" cy="6" r="3"/><path d="M16 11a6 6 0 0 1 7 6v1h-5a9 9 0 0 0-4-6Z"/></g>',
+  gamepad: '<path fill="currentColor" stroke="none" fill-rule="evenodd" d="M7 4h10c3 0 4.5 1.8 5 5l1 7c.6 4.3-3 5.8-5.5 2.8L15 16H9l-2.5 2.8C4 21.8.4 20.3 1 16l1-7c.5-3.2 2-5 5-5Zm-.5 3v2H4.6v1.8h1.9v2h1.8v-2h2V9h-2V7Zm11.6.4a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6Zm-3 3a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6Z"/>',
   clip: '<path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
   micOff: '<path d="m2 2 20 20"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M12 19v3"/>',
@@ -106,8 +108,12 @@ W.valorant = {
 
     // ---- 1. match status ------------------------------------------------------------------------------------------
     const thumb = h('div', 'vl-thumb');
-    const mLine1 = h('div', 'vl-m1'), mLine2 = h('div', 'vl-m2'), mTime = h('div', 'vl-time');
-    const match = h('section', 'vl-match', thumb, h('div', 'vl-mtext', h('div', 'vl-brand', 'VALORANT'), mLine1, mLine2), mTime);
+    const mLine1 = h('div', 'vl-m1'), mLine2 = h('div', 'vl-m2');
+    const partyCount = h('span'), elapsed = h('span');
+    const party = h('span', 'vl-party', SVG(ICON.party), partyCount);
+    const timer = h('span', 'vl-time', SVG(ICON.gamepad), elapsed);
+    const activity = h('div', 'vl-activity', party, timer);
+    const match = h('section', 'vl-match', thumb, h('div', 'vl-mtext', h('div', 'vl-brand', 'VALORANT'), mLine1, mLine2), activity);
     match.addEventListener('click', () => { const m = data?.presence?.map; if (m && data.presence.mapImage) openMapViewer(m); });
 
     // ---- 2. controls --------------------------------------------------------------------------------------------
@@ -255,13 +261,21 @@ W.valorant = {
     };
     const renderMatch = () => {
       const g = data?.game, p = data?.presence;
+      const since = p ? p.since : g?.since;
+      party.hidden = !g?.running || !p?.partySize;
+      timer.hidden = !g?.running || !since;
+      activity.hidden = party.hidden && timer.hidden;
+      if (!party.hidden) {
+        partyCount.textContent = p.maxPartySize ? `${p.partySize} of ${p.maxPartySize}` : String(p.partySize);
+        party.setAttribute('aria-label', 'Party size: ' + partyCount.textContent);
+      }
+      if (!timer.hidden) elapsed.textContent = mmss(Date.now() - since);
       thumb.replaceChildren();
-      if (!loaded) { mLine1.textContent = failed ? 'PC not answering' : 'Connecting…'; mLine2.textContent = ''; mTime.textContent = ''; return; }
+      if (!loaded) { mLine1.textContent = failed ? 'PC not answering' : 'Connecting…'; mLine2.textContent = ''; return; }
       if (!g?.running) {
         thumb.append(h('span', 'vl-thumb-letter', 'V'));
         mLine1.textContent = 'Not running';
         mLine2.textContent = 'Opens by itself when VALORANT starts';
-        mTime.textContent = '';
         match.className = 'vl-match off';
         return;
       }
@@ -271,13 +285,11 @@ W.valorant = {
       if (!p) {
         mLine1.textContent = 'In VALORANT';
         mLine2.textContent = data.presenceError || 'Waiting for the Riot Client';
-        mTime.textContent = g.since ? mmss(Date.now() - g.since) : '';
         return;
       }
       mLine1.textContent = [p.mode, p.map].filter(Boolean).join(' · ') || 'VALORANT';
       const score = p.ally != null && p.enemy != null ? ` · ${p.ally}–${p.enemy}` : '';
       mLine2.textContent = p.status + score;
-      mTime.textContent = p.since ? mmss(Date.now() - p.since) : '';
     };
     const renderMap = () => {
       const p = data?.presence;

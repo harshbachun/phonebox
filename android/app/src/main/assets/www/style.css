@@ -1393,7 +1393,10 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .vl-m1 { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vl-m2 { font-size: 13px; color: var(--vl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vl-match.live .vl-m2 { color: var(--vl-ink); font-weight: 600; }
-.vl-time { flex: none; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--vl-muted); }
+.vl-activity { flex: none; display: flex; align-items: center; gap: .65em; white-space: nowrap; font-size: clamp(12px, 3cqw, 15px); font-variant-numeric: tabular-nums; }
+.vl-party, .vl-time { display: inline-flex; align-items: center; gap: .3em; }
+.vl-party { color: #a4a6ab; }
+.vl-time { color: #65bd82; font-weight: 700; }
 
 /* 2 · controls fill the rest of the first screen; Talk is the biggest and sits by the right thumb */
 .vl-controls { flex: none; height: calc(100cqh - 88px); min-height: 150px; display: grid; grid-template-columns: .8fr 1fr 1.35fr; gap: 8px; }

@@ -174,7 +174,8 @@ public sealed partial class ValorantHost(ConfigStore config, PushStore push, ILo
     }
 
     // ------------------------------------------------------------------ presence (Riot Client local API, your own entry only)
-    public sealed record Presence(string Status, string? Loop, string? Map, string? MapId, string? Mode, string? Queue, int? Ally, int? Enemy, long Since);
+    public sealed record Presence(string Status, string? Loop, string? Map, string? MapId, string? Mode, string? Queue, int? Ally, int? Enemy, long Since,
+        int? PartySize = null, int? MaxPartySize = null);
 
     private Presence? _presence;
     private string? _presenceError;
@@ -292,6 +293,8 @@ public sealed partial class ValorantHost(ConfigStore config, PushStore push, ILo
         var partyState = (Str(party, "partyState") ?? Str(p, "partyState"))?.ToUpperInvariant();
         var ally = Int(party, "partyOwnerMatchScoreAllyTeam") ?? Int(p, "partyOwnerMatchScoreAllyTeam");
         var enemy = Int(party, "partyOwnerMatchScoreEnemyTeam") ?? Int(p, "partyOwnerMatchScoreEnemyTeam");
+        var size = Int(party, "partySize") ?? Int(p, "partySize");
+        var capacity = Int(party, "maxPartySize") ?? Int(p, "maxPartySize");
 
         var status = loop switch
         {
@@ -306,7 +309,8 @@ public sealed partial class ValorantHost(ConfigStore config, PushStore push, ILo
         var mapId = inMatch ? MapCodename(mapPath) : null;
         var mode = flow is "CustomGame" ? "Custom game" : ModeName(queue);
         return new Presence(status, loop, mapId is null ? null : MapName(mapId), mapId, mode, queue,
-            loop == "INGAME" ? ally : null, loop == "INGAME" ? enemy : null, now);
+            loop == "INGAME" ? ally : null, loop == "INGAME" ? enemy : null, now,
+            size > 0 ? size : null, size > 0 && capacity >= size ? capacity : null);
     }
 
     internal static string? MapCodename(string? path)
@@ -810,6 +814,7 @@ public sealed partial class ValorantHost(ConfigStore config, PushStore push, ILo
             presence = running && pres is not null ? new
             {
                 pres.Status, pres.Loop, pres.Map, pres.MapId, pres.Mode, pres.Ally, pres.Enemy, pres.Since,
+                pres.PartySize, pres.MaxPartySize,
                 mapImage = pres.Map is not null && MapImage(pres.Map) is not null,
             } : null,
             presenceError = running ? presErr : null,

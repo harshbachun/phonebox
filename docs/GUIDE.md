@@ -128,6 +128,8 @@ the account allowance. Prompt/response text and tool arguments are not included 
 
 ### A52 VALORANT shortcuts
 
+The right side of the match card shows the current party and its capacity from Riot Client presence, followed by a green gamepad and the elapsed timer. For example, `1 of 12` means one player in a party with room for twelve. If Riot omits the capacity, the card shows the player count alone. If it omits the count, only the timer appears.
+
 Swipe vertically starting on **Mic**, **Save clip** or **Hold to talk** to reach the lower cards. Tap Mic to toggle the recording device or Save clip to send the Medal hotkey. Rest your finger on Talk for 150 ms to start a hold, then lift to release. Starting a scroll cancels a pending hold, and scrolling during an active hold releases it.
 
 ## Layout editor & settings
