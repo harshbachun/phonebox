@@ -7,7 +7,8 @@ using System.Text.Json.Nodes;
 
 namespace PhoneBox.Agent;
 
-public sealed record DiscordMember(string Id, string Name, bool Muted, bool Deafened, string? Avatar);
+public sealed record DiscordMember(string Id, string Name, bool Muted, bool Deafened, string? Avatar,
+    bool IsSelf, bool ServerMuted, bool ServerDeafened);
 public sealed record DiscordChannel(string Id, string Name, string? Guild, string? GuildId, string? GuildIcon);
 public sealed record DiscordNotification(long Ts, string Title, string Body);
 public sealed record DiscordSnapshot(bool Connected, string? Error, string? User, bool Muted, bool Deafened,
@@ -111,7 +112,7 @@ public sealed partial class DiscordMonitor(ConfigStore config, ILogger<DiscordMo
         try
         {
             _snap = Empty("Waiting for you to approve PhoneBox in Discord…");
-            var user = await Authenticate(cfg, ct);
+            var (userId, user) = await Authenticate(cfg, ct);
             _loggedIn = true;
             log.LogInformation("discord: connected");
             var subscribed = false;
@@ -138,12 +139,18 @@ public sealed partial class DiscordMonitor(ConfigStore config, ILogger<DiscordMo
                 var rev = Volatile.Read(ref _voiceRev);
                 var vs = await Request("GET_VOICE_SETTINGS", null, null, ct);
                 var sel = await Request("GET_SELECTED_VOICE_CHANNEL", null, null, ct);
-                var members = sel?["voice_states"]?.AsArray().Select(v => new DiscordMember(
-                    v?["user"]?["id"]?.GetValue<string>() ?? "",
-                    v?["nick"]?.GetValue<string>() ?? v?["user"]?["global_name"]?.GetValue<string>() ?? v?["user"]?["username"]?.GetValue<string>() ?? "?",
-                    v?["voice_state"]?["mute"]?.GetValue<bool>() == true || v?["voice_state"]?["self_mute"]?.GetValue<bool>() == true,
-                    v?["voice_state"]?["deaf"]?.GetValue<bool>() == true || v?["voice_state"]?["self_deaf"]?.GetValue<bool>() == true,
-                    v?["user"]?["avatar"]?.GetValue<string>())).ToList() ?? [];
+                var members = sel?["voice_states"]?.AsArray().Select(v =>
+                {
+                    var id = v?["user"]?["id"]?.GetValue<string>() ?? "";
+                    var voice = v?["voice_state"];
+                    var serverMuted = voice?["mute"]?.GetValue<bool>() == true;
+                    var serverDeafened = voice?["deaf"]?.GetValue<bool>() == true;
+                    return new DiscordMember(id,
+                        v?["nick"]?.GetValue<string>() ?? v?["user"]?["global_name"]?.GetValue<string>() ?? v?["user"]?["username"]?.GetValue<string>() ?? "?",
+                        serverMuted || voice?["self_mute"]?.GetValue<bool>() == true,
+                        serverDeafened || voice?["self_deaf"]?.GetValue<bool>() == true,
+                        v?["user"]?["avatar"]?.GetValue<string>(), id.Length > 0 && id == userId, serverMuted, serverDeafened);
+                }).ToList() ?? [];
                 var kind = sel?["type"]?.GetValue<int>() switch { 1 => "call", 3 => "group call", 2 => "voice", 13 => "stage", _ => sel is null ? null : "voice" };
                 PublishPoll(rev, vs?["mute"]?.GetValue<bool>() == true, vs?["deaf"]?.GetValue<bool>() == true,
                     new DiscordSnapshot(true, null, user, false, false,
@@ -168,7 +175,7 @@ public sealed partial class DiscordMonitor(ConfigStore config, ILogger<DiscordMo
     }
 
     // AUTHORIZE (asks you in Discord, once) → token exchange → AUTHENTICATE. Tokens are kept in the settings folder.
-    private async Task<string> Authenticate(DiscordConfig cfg, CancellationToken ct)
+    private async Task<(string? Id, string Name)> Authenticate(DiscordConfig cfg, CancellationToken ct)
     {
         var tokens = LoadTokens(cfg.ClientId!);
         if (tokens is not null && tokens.Expires < DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds())
@@ -197,10 +204,11 @@ public sealed partial class DiscordMonitor(ConfigStore config, ILogger<DiscordMo
         catch (Exception ex) when (ex is not (OperationCanceledException or IOException)) { throw new LoginRefusedException($"Discord refused the new login ({ex.Message})." + retry); }
     }
 
-    private async Task<string> Auth(string token, CancellationToken ct)
+    private async Task<(string? Id, string Name)> Auth(string token, CancellationToken ct)
     {
         var r = await Request("AUTHENTICATE", new JsonObject { ["access_token"] = token }, null, ct);
-        return r?["user"]?["global_name"]?.GetValue<string>() ?? r?["user"]?["username"]?.GetValue<string>() ?? "Discord";
+        var user = r?["user"];
+        return (user?["id"]?.GetValue<string>(), user?["global_name"]?.GetValue<string>() ?? user?["username"]?.GetValue<string>() ?? "Discord");
     }
 
     private sealed record Tokens(string ClientId, string Access, string Refresh, long Expires);

@@ -245,7 +245,14 @@ function discordPage(box, o) {
   const favs = (Array.isArray(o.favorites) ? o.favorites : String(o.favorites || '').split('\n')).map((f) => String(f).trim()).filter(Boolean);
   const dimFrom = Math.max(1, +o.dimFrom || 4);
   let data = null, lastKey = '', busy = null, picked = null; // picked: the server whose channels are shown
-  const load = async () => { try { data = await api('/discord'); } catch (_) {} };
+  let pendingVoice = null, readVersion = 0;
+  const load = async () => {
+    const version = ++readVersion;
+    try {
+      const next = await api('/discord');
+      if (version === readVersion) data = next;
+    } catch (_) {}
+  };
   const img = (kind, id, hash) => `${API}/discord/img?kind=${kind}&id=${encodeURIComponent(id)}&hash=${encodeURIComponent(hash)}`;
   const avatar = (src, name, cls) => {
     const w = h('span', cls, (name || '?').trim().charAt(0).toUpperCase() || '?');
@@ -255,13 +262,29 @@ function discordPage(box, o) {
   const act = async (action, channel) => {
     if (busy || !data?.control) return;
     haptic();
+    const voiceKey = { mute: 'muted', deafen: 'deafened' }[action];
+    ++readVersion; // Ignore a poll started before this click.
+    if (voiceKey) pendingVoice = { [voiceKey]: !data.snapshot[voiceKey] };
     busy = action + (channel || ''); render(true);
+    let confirmed = false;
     try {
       const r = await fetch(`${API}/discord/${action}` + (channel ? '?channel=' + encodeURIComponent(channel) : ''), { method: 'POST', cache: 'no-store', headers: PANEL_HEADERS });
       if (!r.ok) toast((await r.json().catch(() => ({}))).error || t('w.discord.failed'), 'err');
+      else if (voiceKey) {
+        const { muted, deafened } = await r.json();
+        if (typeof muted === 'boolean' && typeof deafened === 'boolean') {
+          Object.assign(data.snapshot, { muted, deafened });
+          confirmed = true;
+        }
+      }
     } catch (_) { toast(t('panel.pcNoAnswer'), 'err'); }
-    await new Promise((done) => setTimeout(done, 500));
-    await load(); busy = null; render(true);
+    pendingVoice = null;
+    if (!confirmed) {
+      render(true);
+      if (!voiceKey) await new Promise((done) => setTimeout(done, 500));
+      await load();
+    }
+    busy = null; render(true);
   };
   // servers from the channel list, grouped by id, then your favourites in your order (fallback: the first five)
   const servers = (s) => {
@@ -291,6 +314,8 @@ function discordPage(box, o) {
     if (!s.connected) { box.replaceChildren(h('div', 'empty', s.error || t('panel.connecting'))); return; }
     const ctl = data.control;
     const inCall = !!s.channelId;
+    const muted = pendingVoice?.muted ?? s.muted;
+    const deafened = pendingVoice?.deafened ?? s.deafened;
     const mine = servers(s);
     const curChan = inCall ? s.channels.find((c) => c.id === s.channelId) : null;
     const here = curChan ? mine.find((g) => g.id === (curChan.guildId || curChan.guild)) || null : null;
@@ -308,10 +333,14 @@ function discordPage(box, o) {
     const stage = h('div', 'dcp-stage' + (inCall ? '' : ' idle'));
     if (inCall && s.members.length) {
       stage.style.setProperty('--n', Math.min(s.members.length, 4));
-      stage.append(...s.members.map((m) => h('div', 'dcp-tile' + (m.muted || m.deafened ? ' quiet' : ''),
-        avatar(m.avatar && img('user', m.id, m.avatar), m.name, 'dcp-av'),
-        h('span', 'dcp-tname', h('span', null, m.name),
-          m.deafened ? dcpIcon('headOff', 'red') : m.muted ? dcpIcon('micOff', 'red') : null))));
+      stage.append(...s.members.map((m) => {
+        const memberMuted = m.isSelf ? muted || m.serverMuted : m.muted;
+        const memberDeafened = m.isSelf ? deafened || m.serverDeafened : m.deafened;
+        return h('div', 'dcp-tile' + (memberMuted || memberDeafened ? ' quiet' : ''),
+          avatar(m.avatar && img('user', m.id, m.avatar), m.name, 'dcp-av'),
+          h('span', 'dcp-tname', h('span', null, m.name),
+            memberDeafened ? dcpIcon('headOff', 'red') : memberMuted ? dcpIcon('micOff', 'red') : null));
+      }));
     } else if (inCall) {
       stage.append(h('div', 'dcp-idle', h('b', null, s.channelName || 'Voice'), h('span', null, 'Just you here')));
     } else {
@@ -326,8 +355,8 @@ function discordPage(box, o) {
     };
     const bar = h('div', 'dcp-bar',
       h('div', 'dcp-group',
-        cbtn('mic', 'micOff', s.muted, 'mute', t(s.muted ? 'w.a.unmuteMic' : 'w.a.muteMic')),
-        cbtn('head', 'headOff', s.deafened, 'deafen', t(s.deafened ? 'w.a.undeafen' : 'w.a.deafen'))));
+        cbtn('mic', 'micOff', muted, 'mute', t(muted ? 'w.a.unmuteMic' : 'w.a.muteMic')),
+        cbtn('head', 'headOff', deafened, 'deafen', t(deafened ? 'w.a.undeafen' : 'w.a.deafen'))));
     if (inCall) {
       const leave = labelled(h('button', 'dcp-leave' + (busy === 'leave' ? ' busy' : ''), dcpIcon('hangup')), t('w.a.leave'));
       if (ctl && !busy) leave.addEventListener('click', () => act('leave')); else leave.disabled = true;
@@ -361,7 +390,7 @@ function discordPage(box, o) {
     }
     box.replaceChildren(h('div', 'dcp', h('div', 'dcp-call', head, stage, bar), side));
   };
-  const tick = every(1500, async () => { await load(); render(); });
+  const tick = every(1500, async () => { if (!busy) { await load(); render(); } });
   return { update: () => { tick(); render(); } };
 }
 

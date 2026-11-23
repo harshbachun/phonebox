@@ -612,7 +612,15 @@ app.MapGet("/api/discord/img", async (string kind, string id, string hash, Disco
     await dc.ImageAsync(kind, id, hash, ct) is { } img
         ? Results.File(img.Data, img.Type, lastModified: null, entityTag: null, enableRangeProcessing: false) : Results.NotFound());
 app.MapPost("/api/discord/{action}", async (string action, string? channel, DiscordMonitor dc) =>
-    await dc.ActAsync(action, channel) is { } error ? Results.BadRequest(new { error }) : Results.Ok(new { ok = true }));
+{
+    if (await dc.ActAsync(action, channel) is { } error) return Results.BadRequest(new { error });
+    if (action is "mute" or "deafen")
+    {
+        var voice = dc.Snapshot();
+        return Results.Ok(new { ok = true, voice.Muted, voice.Deafened });
+    }
+    return Results.Ok(new { ok = true });
+});
 
 // A52 fork: the Valorant page (ValorantHost.cs). Your own presence, game mic, talk lease, clip hotkey, ping probe and
 // post-match stats; the HenrikDev key and other settings stay on this computer.

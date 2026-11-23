@@ -48,6 +48,10 @@ With `layout: "page"`, the call bar shows a grey microphone and headphones when 
 
 The four supplied SVGs live in `android/app/src/main/assets/www/widgets/discord-voice-icons.js`. The Discord page in `widgets/pc.js` selects them from Discord's reported state. Rebuild and install the Android APK to update the phone. The desktop layout preview embeds the same modules when the Windows agent is built.
 
+On a mute or deafen tap, the button and your call tile update together. The panel then uses the voice settings returned by Discord. If the request fails, the panel drops the pending change and refreshes its state. The agent identifies your tile by your authenticated Discord user ID, so nicknames and duplicate names work. Server-enforced mute and deafen still appear on your tile, and other participants' badges follow their own channel voice states.
+
+Deploy both the Windows agent and Android app for this behavior. Older agents omit the self-member marker, so the phone falls back to their polled member badges.
+
 ## What is requested
 
 The login asks for these Discord permissions, all of them on your own account and only through the local app:
