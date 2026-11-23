@@ -14,6 +14,7 @@ public sealed partial class ControlDeck : BackgroundService
     private readonly IDeckNative _native;
     private readonly Func<long> _now;
     private readonly SpotifyControl? _spotify;
+    private readonly PlexControl? _plex;
     private readonly ControlTasks _tasks;
     private readonly MicrophoneLeases _ptt;
     // Serializes push-to-talk with panic, so a hold cannot begin between panic dropping the leases and muting.
@@ -39,12 +40,16 @@ public sealed partial class ControlDeck : BackgroundService
     private Task? _hardwareJob;
     private long _hardwareAt;
     private IReadOnlyList<DeckMonitor> _monitors = [];
+    // Brightness levels set since the running monitor read began (guarded by _state): that read may have seen the monitor
+    // before the set, and must not bring the old level back for the next 30 s (#360).
+    private readonly Dictionary<string, int> _brightnessSet = new(StringComparer.Ordinal);
+    private readonly object _brightnessGate = new();
     private IReadOnlyList<DeckItem> _plans = [], _midi = [];
 
     private readonly PushStore? _push;
     private readonly AudioControl? _master;
-    public ControlDeck(ConfigStore config, AudioControl audio, MediaMonitor media, ILogger<ControlDeck> log, SpotifyControl spotify, PushStore push)
-        : this(config, CreateNative(audio, media, log), log, null, push, audio, spotify) { }
+    public ControlDeck(ConfigStore config, AudioControl audio, MediaMonitor media, ILogger<ControlDeck> log, SpotifyControl spotify, PlexControl plex, PushStore push)
+        : this(config, CreateNative(audio, media, log), log, null, push, audio, spotify, plex: plex) { }
 
     private static IDeckNative CreateNative(AudioControl audio, MediaMonitor media, ILogger log)
     {
@@ -54,9 +59,9 @@ public sealed partial class ControlDeck : BackgroundService
         return new PortableDeckNative(audio, media);
 #endif
     }
-    internal ControlDeck(ConfigStore config, IDeckNative native, ILogger<ControlDeck> log, Func<long>? now = null, PushStore? push = null, AudioControl? master = null, SpotifyControl? spotify = null, RadioLogoCache? logos = null)
+    internal ControlDeck(ConfigStore config, IDeckNative native, ILogger<ControlDeck> log, Func<long>? now = null, PushStore? push = null, AudioControl? master = null, SpotifyControl? spotify = null, RadioLogoCache? logos = null, PlexControl? plex = null)
     {
-        _config = config; _log = log; _push = push; _master = master; _spotify = spotify;
+        _config = config; _log = log; _push = push; _master = master; _spotify = spotify; _plex = plex;
         _now = now ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         _tasks = new(config, log);
         _native = native;
@@ -149,13 +154,24 @@ public sealed partial class ControlDeck : BackgroundService
         {
             if (_hardwareJob?.IsCompleted == false || Environment.TickCount64 - _hardwareAt < 30_000) return;
             _hardwareAt = Environment.TickCount64;
+            _brightnessSet.Clear(); // the read below starts after every set so far, so it sees them
             _hardwareJob = Task.Run(() =>
             {
-                try { _monitors = _native.Monitors(); _plans = _native.PowerPlans(); _midi = _native.MidiPorts(); }
+                try
+                {
+                    var monitors = _native.Monitors();
+                    lock (_state) _monitors = WithBrightnessSet(monitors);
+                    _plans = _native.PowerPlans(); _midi = _native.MidiPorts();
+                }
                 catch (Exception ex) { _log.LogDebug(ex, "Control hardware discovery failed"); }
             });
         }
     }
+
+    /// <summary>The monitors with the brightness levels set since the running read began. Call under <c>_state</c>.</summary>
+    private IReadOnlyList<DeckMonitor> WithBrightnessSet(IReadOnlyList<DeckMonitor> monitors) =>
+        _brightnessSet.Count == 0 ? monitors
+            : monitors.Select(m => _brightnessSet.TryGetValue(m.Id, out var level) ? m with { Brightness = level } : m).ToArray();
 
     /// <summary>Returns a draft for the desktop editor; saving still uses the ordinary config version check.</summary>
     public DeckProfile CaptureProfile()
@@ -272,7 +288,15 @@ public sealed partial class ControlDeck : BackgroundService
                     else { StopRadio(id, clearLast: true); }
                     ok = true; break;
                 case "action": return await Action(id, op, value, ct);
-                case "brightness": ok = value is >= 0 and <= 100 && _native.Brightness(id, value.Value); break;
+                case "brightness":
+                    // one set at a time, so the level shown is the one the monitor got last when a drag sends sets at once
+                    lock (_brightnessGate)
+                    {
+                        ok = value is >= 0 and <= 100 && _native.Brightness(id, value.Value);
+                        // shown at once: the next monitor read can be up to 30 s away (#360)
+                        if (ok) lock (_state) { _brightnessSet[id] = value!.Value; _monitors = WithBrightnessSet(_monitors); }
+                    }
+                    break;
                 case "desktop": ok = value is -1 or 1 && await _native.PlatformAction("desktop", "", null, value.Value, ct); break;
                 case "power-plan": ok = _native.PowerPlans().Any(p => p.Id == id) && await _native.PlatformAction("power-plan", id, null, 0, ct); break;
                 case "power-arm":
@@ -400,6 +424,14 @@ public sealed partial class ControlDeck : BackgroundService
                 return await RunWithMediaFocusAsync(async token =>
                 {
                     var res = await _spotify.Act("playlist", action.Id, token);
+                    if (res.Ok) StopAllRadios(clearLast: true);
+                    return res;
+                }, ct);
+            case "plex-playlist":
+                if (_plex is null) return new(false, "Plex is unavailable");
+                return await RunWithMediaFocusAsync(async token =>
+                {
+                    var res = await _plex.Act("playlist", action.Id, token);
                     if (res.Ok) StopAllRadios(clearLast: true);
                     return res;
                 }, ct);

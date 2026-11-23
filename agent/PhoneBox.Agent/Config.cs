@@ -23,6 +23,12 @@ public sealed class AgentConfig
     public ClaudeConfig Claude { get; set; } = new();
     /// <summary>Cursor agent-transcript sessions on the AI sessions widget (off by default).</summary>
     public CursorConfig Cursor { get; set; } = new();
+    /// <summary>Antigravity chats on the AI sessions widget (off by default).</summary>
+    public AntigravityConfig Antigravity { get; set; } = new();
+    /// <summary>OpenCode prompts and sessions on the phone; everything is off until the settings page turns it on.</summary>
+    [JsonPropertyName("opencode")]
+    public OpenCodeConfig OpenCode { get; set; } = new();
+    public bool A52ComparisonAdded { get; set; }
     public List<PageConfig> Pages { get; set; } = [];
     public List<Shortcut> Shortcuts { get; set; } = [];
     public List<RuleConfig> Rules { get; set; } = [];
@@ -45,6 +51,8 @@ public sealed class AgentConfig
     public DiscordConfig Discord { get; set; } = new();
     /// <summary>App console widget: key and dial bindings per app (the phone gets labels and ids, not the keys to press).</summary>
     public ConsoleConfig Console { get; set; } = new();
+    /// <summary>Steam friends presence (the Web API key stays on this computer and is never sent to the phone).</summary>
+    public SteamConfig Steam { get; set; } = new();
 
     /// <summary>The pages a phone shows: its own selection (Settings › Phones), or all of them.</summary>
     public IEnumerable<PageConfig> PagesFor(string? deviceId)
@@ -80,11 +88,13 @@ public sealed class AgentConfig
         shortcuts = Shortcuts.Select(s =>
         {
             var pic = shortcutIcon?.Invoke(s);
-            return new { s.Id, s.Label, s.Icon, s.Color, toggle = s.Toggle || s.Cmd == "builtin:mute", iconRev = pic?.Rev, iconUpload = pic?.Upload == true };
+            return new { s.Id, s.Label, s.Icon, s.Color, toggle = s.Toggle || s.Cmd == "builtin:mute", hold = s.LongPress is not null, cycle = s.Cmd == "builtin:cycle" && s.Cycle is { Count: > 0 }, iconRev = pic?.Rev, iconUpload = pic?.Upload == true };
         }),
         // names only (for the Rules widget); what a rule matches on stays here
         rules = Rules.Select(r => new { r.Id, r.Name, r.Enabled, r.When }),
         charge = new { Charge.Enabled, Charge.Min, Charge.Max },
+        // OpenCode prompts: how long the Allow always button waits before it can be pressed (it saves a pattern)
+        opencode = new { OpenCode.AlwaysCountdownSec },
     };
 
     /// <summary>Ending processes is allowed when an enabled page has a processes widget that allows it.</summary>
@@ -98,6 +108,18 @@ public sealed class AgentConfig
     /// <summary>True when an enabled page (including enabled Smart Stack children) shows the quota cost overview card.</summary>
     public bool ShowQuotaOverview() => Widgets(enabledPagesOnly: true)
         .Any(w => w.Type is "codexbar" or "quotas" && w.Bool("showOverview") == true);
+
+    /// <summary>True when an enabled page (including enabled Smart Stack children) shows a quota or CodexBar widget that includes Codex.</summary>
+    public bool ShowCodexQuota() => Widgets(enabledPagesOnly: true)
+        .Any(w => w.Type is "codexbar" or "quotas" && WidgetIncludesProvider(w, "codex"));
+
+    private bool WidgetIncludesProvider(WidgetConfig w, string id)
+    {
+        if (w.Opt("providers") is { ValueKind: JsonValueKind.Array } arr)
+            // case-sensitive, as the panel compares them: "CODEX" shows no Codex card, so it starts no polling either
+            return arr.EnumerateArray().Any(e => e.ValueKind == JsonValueKind.String && e.GetString() == id);
+        return CodexBar.Providers.Any(p => p == id);
+    }
 }
 
 public sealed class WeatherConfig
@@ -142,10 +164,11 @@ public sealed class NightConfig
 public sealed class DisplayConfig
 {
     public AppearanceConfig? Appearance { get; set; }
-    /// <summary>UI language code ("auto", "en", "tr", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "el", "vi", "zh").</summary>
+    /// <summary>UI language code ("auto", "en", "tr", "de", "fr", "es", "it", "pt", "pt-BR", "nl", "pl", "ru", "el", "vi", "zh").</summary>
     public string Language { get; set; } = "auto";
-    /// <summary>The codes the panel and the settings page are translated into (i18n.js).</summary>
-    internal static readonly string[] Languages = ["auto", "en", "tr", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "el", "vi", "zh"];
+    /// <summary>The codes the panel and the settings page are translated into (i18n.js). Casing matters for pt-BR:
+    /// it is a distinct entry from pt, not a variant of it, so it must survive a save in this exact form.</summary>
+    internal static readonly string[] Languages = ["auto", "en", "tr", "de", "fr", "es", "it", "pt", "pt-BR", "nl", "pl", "ru", "el", "vi", "zh", "ja", "ko", "id", "th", "uk", "hi", "cs", "ar", "zh-Hant"];
     public bool ShowSeconds { get; set; } = true;
     /// <summary>false ("14:05", default), true ("2:05 PM") or "auto" (follow the phone).</summary>
     [JsonConverter(typeof(Hour12JsonConverter))]
@@ -170,12 +193,20 @@ public sealed class DisplayConfig
     public bool AutoBrightness { get; set; }
     /// <summary>Show the night screen whenever the room is dark, not only at night.</summary>
     public bool NightWhenDark { get; set; }
+    /// <summary>Show the night screen after the paired computer's agent has been unreachable for a while.</summary>
+    public bool NightWhenUnreachable { get; set; }
+    /// <summary>Minutes to wait after the agent becomes unreachable before showing the night screen.</summary>
+    public int UnreachableNightDelayMin { get; set; } = 5;
     /// <summary>A hand near the phone (proximity sensor) wakes the night screen.</summary>
     public bool ProximityWake { get; set; } = true;
     /// <summary>OLED burn-in protection: every 2 minutes the panel moves by a few pixels and the night clock drifts.</summary>
     public bool PixelShift { get; set; }
     /// <summary>The page dots and the permission prompt's Allow / Deny buttons at the top, for a panel whose bottom edge is hard to reach.</summary>
     public bool ControlsTop { get; set; }
+    /// <summary>How the panel shows its pages: dots, auto (a bar with each page's icon and name while the dots are used) or bar (always, with its own strip of the screen).</summary>
+    public string PageBar { get; set; } = "dots";
+    /// <summary>Where the page bar goes: bottom (the top with <see cref="ControlsTop"/>), left or right.</summary>
+    public string PageBarSide { get; set; } = "bottom";
     /// <summary>OLED burn-in protection: dim the panel after this many minutes without a touch; 0 = never.</summary>
     public int IdleDimMin { get; set; }
     /// <summary>Screen pinning: Home and Recents stay on the panel.</summary>
@@ -222,9 +253,9 @@ public sealed class UpdateConfig
 
 public sealed class ClaudeConfig
 {
-    /// <summary>Show Claude Code permission prompts on the phone (needs the hook, see Settings › General).</summary>
+    /// <summary>Show AI coding-agent permission prompts on the phone (needs an agent hook, see Settings › General).</summary>
     public bool PhoneApprovals { get; set; } = true;
-    /// <summary>How long the phone may take before Claude Code asks in the terminal instead.</summary>
+    /// <summary>How long the phone may take before the coding agent asks in its normal UI instead.</summary>
     public int TimeoutSec { get; set; } = 90;
     /// <summary>Let the phone open a Claude Code session's recent messages and steps, read from its chat file on this
     /// computer. They are your prompts and Claude's replies, so this stays off until you turn it on.</summary>
@@ -240,6 +271,34 @@ public sealed class CursorConfig
 {
     /// <summary>Show recent Cursor agent chats on the AI sessions widget (off by default).</summary>
     public bool Sessions { get; set; }
+}
+
+public sealed class AntigravityConfig
+{
+    /// <summary>Show recent Antigravity chats on the AI sessions widget (off by default).</summary>
+    public bool Sessions { get; set; }
+    /// <summary>Show each Antigravity chat's title from its local annotation file on the phone (off by default).</summary>
+    public bool ShareSessionTitles { get; set; }
+}
+
+public sealed class OpenCodeConfig
+{
+    /// <summary>Show OpenCode permission prompts on the phone. Off until Settings › General turns it on: letting the
+    /// phone approve commands is opt-in, like Claude Code's hook install.</summary>
+    public bool PhoneApprovals { get; set; }
+    /// <summary>Show recent OpenCode sessions on the AI sessions widget (off by default, like Cursor's).</summary>
+    public bool Sessions { get; set; }
+    /// <summary>How long the phone may answer before the prompt is left to OpenCode's own window on the desktop.</summary>
+    public int TimeoutSec { get; set; } = 90;
+    /// <summary>Only use the phone when the PC has been idle for a minute (OpenCode's own prompt is on the screen otherwise).</summary>
+    public bool OnlyWhenAway { get; set; }
+    /// <summary>Seconds the Allow always button waits before it can be pressed (it saves a pattern for the project); 0 arms it at once.</summary>
+    public int AlwaysCountdownSec { get; set; } = 10;
+    /// <summary>Also watch OpenCode inside WSL distros that are already running (see OpenCodeServices); off until turned on.</summary>
+    public bool WatchWsl { get; set; }
+    /// <summary>Show each OpenCode session's title on the phone. OpenCode draws the titles from the conversation,
+    /// so they stay off the phone until you turn this on, like Claude's shareSessionTitles.</summary>
+    public bool ShareSessionTitles { get; set; }
 }
 
 public sealed class PageConfig
@@ -357,6 +416,30 @@ public sealed class DiscordConfig
     public bool Enabled { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
+    /// <summary>
+    /// Allow mute, deafen, leave and join through <c>/api/discord/{action}</c> without a Discord widget: for shortcuts,
+    /// scripts and custom widgets. Off by default; then only a Discord widget with its <c>control</c> option on, on an
+    /// enabled page, allows them.
+    /// </summary>
+    public bool AllowControl { get; set; }
+    /// <summary>
+    /// Screen share from the phone (off by default). Asks Discord for rpc.screenshare.read / .write, so Discord asks to
+    /// approve PhoneBox again; lists the apps with a window (names only) while the share view is open on the phone.
+    /// </summary>
+    public bool ScreenShare { get; set; }
+    /// <summary>
+    /// The Discord widget's chat (read-only) and new-message dots: asks Discord for the <c>messages.read</c> scope (one
+    /// more approval in Discord) and sends message text to the phone. Off by default. Message text stays in the agent's
+    /// memory only, for as long as the connection to Discord lasts.
+    /// </summary>
+    public bool Chat { get; set; }
+}
+
+public sealed class SteamConfig
+{
+    public bool Enabled { get; set; }
+    public string? SteamId { get; set; }
+    public string? ApiKey { get; set; }
 }
 
 public sealed class HomeAssistantConfig
@@ -378,6 +461,7 @@ public sealed class FeedSource
 {
     public string Name { get; set; } = "";
     public string Url { get; set; } = "";
+    public string Category { get; set; } = "";
 }
 
 public sealed class CalendarSource
@@ -408,6 +492,11 @@ public sealed class Shortcut
     /// <summary>For toggles: the command (and arguments) that switch it off; empty = the same as switching on.</summary>
     public string? OffCmd { get; set; }
     public string? OffArgs { get; set; }
+    /// <summary>Id of another shortcut that a long press on this key runs instead (the phone only says "held"; the id is looked up here).</summary>
+    public string? LongPress { get; set; }
+    /// <summary>builtin:cycle: ids of the shortcuts to run one after another, a tap each; the key shows the one that ran last.</summary>
+    public List<string>? Cycle { get; set; }
+    public const int MaxCycle = 20;
 }
 
 /// <summary>Reads/writes config.json; external edits are picked up on the next request.</summary>
@@ -416,7 +505,7 @@ public sealed partial class ConfigStore(string path)
     /// <summary>Pages a fresh install (or an empty page list) starts with.</summary>
     public static readonly string[] DefaultPages = ["home", "ai", "work", "system", "procs", "deck"];
 
-    private static readonly JsonSerializerOptions ReadOpts = new()
+    public static readonly JsonSerializerOptions ReadOpts = new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
@@ -430,6 +519,14 @@ public sealed partial class ConfigStore(string path)
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // keep emoji and non-ASCII text readable
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
+
+    /// <summary>Retain a secret redacted from settings GETs when a client sends it back as missing or null.</summary>
+    internal static bool PreserveSteamApiKey(AgentConfig? proposed, string? storedKey)
+    {
+        if (proposed?.Steam is not { ApiKey: null } steam || storedKey is null) return false;
+        steam.ApiKey = storedKey;
+        return true;
+    }
 
     private readonly Lock _lock = new();
     private AgentConfig _config = Normalize(new AgentConfig());
@@ -501,7 +598,12 @@ public sealed partial class ConfigStore(string path)
         var staleIds = Get().Shortcuts.Select(s => s.Id).ToHashSet(StringComparer.Ordinal);
         cfg = Normalize(cfg, staleIds);
         foreach (var s in cfg.Shortcuts)
+        {
             if (string.IsNullOrWhiteSpace(s.Cmd)) return $"Shortcut '{s.Label}' has no command";
+            if (s.Cmd == "builtin:wake" && WakeOnLan.ParseArgs(s.Args, out _, out _) is { } wakeError) return $"Shortcut '{s.Label}': {wakeError}";
+            // a toggle's off action runs through the same path while the toggle is on
+            if (s.OffCmd == "builtin:wake" && WakeOnLan.ParseArgs(s.OffArgs, out _, out _) is { } offWakeError) return $"Shortcut '{s.Label}' (off action): {offWakeError}";
+        }
         if (cfg.Console.Profiles.Count > AppConsole.MaxProfiles) return $"The app console has more than {AppConsole.MaxProfiles} apps";
         foreach (var p in cfg.Console.Profiles)
             if (AppConsole.Validate(p) is { } consoleError) return consoleError;
@@ -547,14 +649,23 @@ public sealed partial class ConfigStore(string path)
         foreach (var action in c.Controls.Actions) { action.Target ??= ""; action.Kind ??= "shortcut"; action.Label ??= action.Id; }
         c.Controls.Profiles = c.Controls.Profiles.Where(p => p is not null && !string.IsNullOrWhiteSpace(p.Id)).DistinctBy(p => p.Id).Take(128).ToList();
         foreach (var profile in c.Controls.Profiles) { profile.Levels = (profile.Levels ?? []).Where(l => l is not null).Take(512).ToList(); profile.Defaults ??= []; profile.Actions = (profile.Actions ?? []).Where(a => !string.IsNullOrEmpty(a)).Take(64).ToList(); profile.Label ??= profile.Id; }
+        c.Controls.PlexUrl = PlexControl.NormalizeUrl(c.Controls.PlexUrl);
+        c.Controls.PlexPlayerUrl = PlexControl.NormalizeUrl(c.Controls.PlexPlayerUrl) ?? PlexControl.DefaultPlayerUrl;
+        // a control character (a stray newline from a paste) can't be part of a token, and would break the request header
+        c.Controls.PlexToken = new string((c.Controls.PlexToken ?? "").Where(ch => !char.IsControl(ch)).ToArray()).Trim() is { Length: > 0 } plexToken
+            ? Cap(plexToken, 256) : null;
         c.Display ??= new();
         c.Display.Appearance?.Normalize();
         c.Display.Hour12 = Hour12JsonConverter.Normalize(c.Display.Hour12);
+        c.Display.PageBar = c.Display.PageBar is "dots" or "auto" or "bar" ? c.Display.PageBar : "dots";
+        c.Display.PageBarSide = c.Display.PageBarSide is "bottom" or "left" or "right" ? c.Display.PageBarSide : "bottom";
         c.Display.IdleReturnSec = Math.Clamp(c.Display.IdleReturnSec, 0, 3600);
         c.Display.IdleDimMin = Math.Clamp(c.Display.IdleDimMin, 0, 1440);
-        // a language the panel does not have falls back to following the phone / browser
-        var lang = (c.Display.Language ?? "").Trim().ToLowerInvariant();
-        c.Display.Language = DisplayConfig.Languages.Contains(lang) ? lang : "auto";
+        c.Display.UnreachableNightDelayMin = Math.Clamp(c.Display.UnreachableNightDelayMin, 1, 30);
+        // a language the panel does not have falls back to following the phone / browser. Matched case-insensitively
+        // so "PT-br" still resolves, but stored in its canonical casing: i18n.js looks pt-BR up by exact code.
+        var lang = (c.Display.Language ?? "").Trim();
+        c.Display.Language = DisplayConfig.Languages.FirstOrDefault(l => l.Equals(lang, StringComparison.OrdinalIgnoreCase)) ?? "auto";
         c.Display.SwitchCountdownSec = Math.Clamp(c.Display.SwitchCountdownSec, 0, 30);
         c.Display.TouchGraceSec = Math.Clamp(c.Display.TouchGraceSec, 0, 600);
         c.Display.MinDwellSec = Math.Clamp(c.Display.MinDwellSec, 0, 600);
@@ -569,6 +680,10 @@ public sealed partial class ConfigStore(string path)
         c.Claude ??= new();
         c.Claude.TimeoutSec = Math.Clamp(c.Claude.TimeoutSec, 10, 3600);
         c.Cursor ??= new();
+        c.Antigravity ??= new();
+        c.OpenCode ??= new();
+        c.OpenCode.TimeoutSec = Math.Clamp(c.OpenCode.TimeoutSec, 10, 3600);
+        c.OpenCode.AlwaysCountdownSec = Math.Clamp(c.OpenCode.AlwaysCountdownSec, 0, 60);
         if (string.IsNullOrWhiteSpace(c.Updates.Repo)) c.Updates.Repo = "ersinkoc/phonebox";
         c.Lan.Port = Math.Clamp(c.Lan.Port, 1024, 65535);
         if (string.IsNullOrWhiteSpace(c.Lan.Token)) c.Lan.Token = NewToken();
@@ -620,6 +735,21 @@ public sealed partial class ConfigStore(string path)
             if (string.IsNullOrWhiteSpace(s.OffCmd)) s.OffCmd = null;
             if (string.IsNullOrWhiteSpace(s.OffArgs)) s.OffArgs = null;
         }
+        // a long press runs another key: drop a blank, self-referencing or dangling target, so the phone never offers a hold that does nothing
+        foreach (var s in c.Shortcuts)
+        {
+            s.LongPress = s.LongPress?.Trim();
+            if (string.IsNullOrEmpty(s.LongPress) || s.LongPress == s.Id || !c.Shortcuts.Any(o => o.Id == s.LongPress)) s.LongPress = null;
+        }
+        // a cycle key: the keys it runs must exist (a deleted or renamed one drops out), and none of them is the cycle itself
+        foreach (var s in c.Shortcuts)
+        {
+            s.Cycle = s.Cmd == "builtin:cycle"
+                ? (s.Cycle ?? []).Select(x => x?.Trim() ?? "").Where(x => x != s.Id && c.Shortcuts.Any(o => o.Id == x)).Take(Shortcut.MaxCycle).ToList()
+                : null;
+            // a cycle key runs the next key, not a command of its own: an on / off setting would bypass the cycle
+            if (s.Cmd == "builtin:cycle") { s.Toggle = false; s.StateKey = null; s.OffCmd = null; s.OffArgs = null; }
+        }
         c.Phones = (c.Phones ?? []).Where(p => p is not null && !string.IsNullOrWhiteSpace(p.Id)).GroupBy(p => p.Id).Select(g => g.First()).Take(20).ToList();
         foreach (var ph in c.Phones)
         {
@@ -633,6 +763,9 @@ public sealed partial class ConfigStore(string path)
         c.Discord ??= new();
         c.Discord.ClientId = string.IsNullOrWhiteSpace(c.Discord.ClientId) ? null : c.Discord.ClientId.Trim();
         c.Discord.ClientSecret = string.IsNullOrWhiteSpace(c.Discord.ClientSecret) ? null : c.Discord.ClientSecret.Trim();
+        c.Steam ??= new();
+        c.Steam.SteamId = string.IsNullOrWhiteSpace(c.Steam.SteamId) ? null : c.Steam.SteamId.Trim();
+        c.Steam.ApiKey = string.IsNullOrWhiteSpace(c.Steam.ApiKey) ? null : c.Steam.ApiKey.Trim();
         if (string.IsNullOrWhiteSpace(c.Obs.Url)) c.Obs.Url = "ws://127.0.0.1:4455";
         c.HomeAssistant ??= new();
         c.HomeAssistant.Url = string.IsNullOrWhiteSpace(c.HomeAssistant.Url) ? null : c.HomeAssistant.Url.Trim().TrimEnd('/');
@@ -661,7 +794,20 @@ public sealed partial class ConfigStore(string path)
         c.Feeds = (c.Feeds ?? []).Where(x => x is not null).Take(30).ToList();
         c.Photos ??= new();
         c.Photos.Folder = (c.Photos.Folder ?? "").Trim() is { Length: > 1024 } longFolder ? longFolder[..1024] : (c.Photos.Folder ?? "").Trim();
-        foreach (var f in c.Feeds) { var n = f.Name?.Trim() ?? ""; f.Name = n.Length > 60 ? n[..60] : n; f.Url = f.Url?.Trim() ?? ""; }
+        c.Photos.Source = string.Equals(c.Photos.Source?.Trim(), PhotoFrameConfig.SourceImmich, StringComparison.OrdinalIgnoreCase) ? PhotoFrameConfig.SourceImmich : PhotoFrameConfig.SourceFolder;
+        c.Photos.ImmichUrl = Cap((c.Photos.ImmichUrl ?? "").Trim(), 2048);
+        // a control character (a stray newline from a paste) can't be part of a key, and would break the request header
+        c.Photos.ImmichKey = Cap(new string((c.Photos.ImmichKey ?? "").Where(ch => !char.IsControl(ch)).ToArray()).Trim(), 256);
+        c.Photos.ImmichAlbum = Cap((c.Photos.ImmichAlbum ?? "").Trim(), 64);
+        c.Photos.ImmichAlbumName = Cap((c.Photos.ImmichAlbumName ?? "").Trim(), 200);
+        foreach (var f in c.Feeds)
+        {
+            var n = f.Name?.Trim() ?? "";
+            f.Name = n.Length > 60 ? n[..60] : n;
+            f.Url = f.Url?.Trim() ?? "";
+            var cat = f.Category?.Trim() ?? "";
+            f.Category = cat.Length > 40 ? cat[..40] : cat;
+        }
         c.Cameras ??= new();
         c.Cameras.Ffmpeg = (c.Cameras.Ffmpeg ?? "").Trim() is { Length: > 1024 } longFfmpeg ? longFfmpeg[..1024] : (c.Cameras.Ffmpeg ?? "").Trim();
         // a row left empty in the editor is dropped; ids are random and kept, so widgets keep pointing at the same camera
@@ -842,6 +988,29 @@ public sealed partial class ConfigStore(string path)
     private static string NewToken() =>
         Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
+    // Stage the official widget beside an existing A52 Discord page once. The flag lets the
+    // owner later remove either page or disable live quotas without the upgrade undoing it.
+    private static bool AddA52Comparison(AgentConfig c)
+    {
+        if (c.A52ComparisonAdded) return false;
+        var index = c.Pages.FindIndex(p => p.Widgets?.Any(w => w.Type == "discord" && w.Str("layout") == "page") == true);
+        if (index < 0) return false;
+        var original = c.Pages[index];
+        var widget = original.Widgets!.First(w => w.Type == "discord" && w.Str("layout") == "page");
+        var id = UniqueLayoutId("discord-official", c.Pages.Select(p => p.Id).ToHashSet());
+        var official = new WidgetConfig { Id = "discord-upstream", Type = "discord", W = 12, H = 6 };
+        official.Set("control", widget.Bool("control") == true);
+        official.Set("channels", true);
+        official.Set("notifications", true);
+        c.Pages.Insert(index + 1, new PageConfig { Id = id, Title = "Discord Official", Icon = original.Icon, Enabled = original.Enabled, Widgets = [official] });
+        foreach (var phone in c.Phones)
+            if (phone.Pages?.Contains(original.Id) == true) phone.Pages.Add(id);
+        if (c.Pages.Any(p => p.Widgets?.Any(w => w.Type == "quotas" && w.Str("style") == "bars") == true))
+            c.CodexBar.CodexLiveQuota = true;
+        c.A52ComparisonAdded = true;
+        return true;
+    }
+
     /// <summary>Makes sure the generated Wi-Fi token is written to disk so it stays stable across restarts.</summary>
     public void PersistGenerated()
     {
@@ -858,7 +1027,10 @@ public sealed partial class ConfigStore(string path)
             var onDisk = JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(path), ReadOpts);
             var damagedIcons = (onDisk?.Pages ?? []).Any(p => p is not null && IconText.Repair(p.Icon) != p.Icon)
                 || (onDisk?.Shortcuts ?? []).Any(s => s is not null && IconText.Repair(s.Icon) != s.Icon);
-            if (!damagedIcons && onDisk?.Lan?.Token == c.Lan.Token && onDisk?.Lan?.WebhookToken == c.Lan.WebhookToken) return;
+            // Work on a detached copy. Save checks the original version and writes the profile atomically.
+            c = JsonSerializer.Deserialize<AgentConfig>(JsonSerializer.Serialize(c, WriteOpts), ReadOpts)!;
+            var comparisonAdded = AddA52Comparison(c);
+            if (!comparisonAdded && !damagedIcons && onDisk?.Lan?.Token == c.Lan.Token && onDisk?.Lan?.WebhookToken == c.Lan.WebhookToken) return;
         }
         catch { }
         Save(JsonSerializer.Serialize(c, WriteOpts), version);
@@ -886,6 +1058,8 @@ public sealed class CodexBarConfig
     public bool Rotate { get; set; } = true;
     public int PageSize { get; set; } = 2;
     public int RotateInterval { get; set; } = 8;
+    /// <summary>Opt-in: poll live Codex quotas through the local Codex CLI app-server (off by default).</summary>
+    public bool CodexLiveQuota { get; set; }
 }
 
 /// <summary>
