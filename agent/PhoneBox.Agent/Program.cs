@@ -358,6 +358,7 @@ app.MapGet("/panel/{*file}", (string? file, HttpRequest req) =>
         ".html" => "text/html; charset=utf-8",
         ".js" => "text/javascript; charset=utf-8",
         ".css" => "text/css; charset=utf-8",
+        ".svg" => "image/svg+xml",
         _ => "application/octet-stream",
     };
     return AppPaths.Resource("www/" + file) is { } s ? Results.Stream(s, type) : Results.NotFound();

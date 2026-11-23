@@ -408,6 +408,7 @@ body.offline .offline-msg { display: flex; }
 }
 .q-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .q-logo { font-size: 17px; color: var(--q); line-height: 1; align-self: center; }
+img.q-logo { width: 1em; height: 1em; flex: none; }
 .q-name { font-size: 15px; font-weight: 700; }
 .q-plan { font-size: 11px; color: var(--q); background: color-mix(in srgb, var(--q) 15%, transparent); padding: 2px 8px; border-radius: 7px; font-weight: 600; white-space: nowrap; }
 .q-upd { margin-left: auto; font-size: 11px; color: var(--dim); white-space: nowrap; }

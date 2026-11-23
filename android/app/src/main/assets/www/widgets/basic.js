@@ -570,7 +570,13 @@ W.quotas = {
         const card = h('div', 'q-card' + (p.limits.length >= 4 ? ' q-card-compact' : ''));
         card.style.setProperty('--q', st.color);
         card.style.flex = needsPaging && ps === 2 ? '1 1 0' : String(Math.max(1, p.limits.length) + 0.3);
-        card.appendChild(h('div', 'q-head', h('span', 'q-logo', st.logo), h('span', 'q-name', p.name), h('span', 'q-plan', p.plan),
+        let logo = h('span', 'q-logo', st.logo);
+        if (o.style === 'bars' && (p.id === 'claude' || p.id === 'codex')) {
+          logo = h('img', 'q-logo');
+          logo.src = p.id === 'claude' ? 'claude-ai.svg' : 'openai-chatgpt-mono.svg';
+          logo.alt = ''; // The provider name is already displayed beside the mark.
+        }
+        card.appendChild(h('div', 'q-head', logo, h('span', 'q-name', p.name), h('span', 'q-plan', p.plan),
           p.updatedAt ? h('span', 'q-upd', fmtDur(Date.now() - p.updatedAt) + ' ago') : null));
         // A52 fork: progress bars instead of rings (options.style = 'bars')
         if (o.style === 'bars') card.append(quotaBars(p));
