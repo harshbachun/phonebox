@@ -1398,7 +1398,7 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 /* 2 · controls fill the rest of the first screen; Talk is the biggest and sits by the right thumb */
 .vl-controls { flex: none; height: calc(100cqh - 88px); min-height: 150px; display: grid; grid-template-columns: .8fr 1fr 1.35fr; gap: 8px; }
 .vl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 18px; border: 1px solid var(--vl-line);
-  background: var(--vl-panel); color: var(--vl-ink); font: inherit; text-align: center; padding: 10px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 0; }
+  background: var(--vl-panel); color: var(--vl-ink); font: inherit; text-align: center; padding: 10px; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 0; }
 .vl-btn .vl-i, .vl-btn .vl-mute-icon { font-size: 40px; }
 .vl-btn b { font-size: 18px; font-weight: 800; letter-spacing: .02em; }
 .vl-btn small { font-size: 12px; color: var(--vl-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

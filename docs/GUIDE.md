@@ -126,6 +126,10 @@ failures retain the last measurements with an error.
 Tap an AI session to see its model, timing and token details. Token counters describe the local session rather than
 the account allowance. Prompt/response text and tool arguments are not included in this panel data.
 
+### A52 VALORANT shortcuts
+
+Swipe vertically starting on **Mic**, **Save clip** or **Hold to talk** to reach the lower cards. Tap Mic to toggle the recording device or Save clip to send the Medal hotkey. Rest your finger on Talk for 150 ms to start a hold, then lift to release. Starting a scroll cancels a pending hold, and scrolling during an active hold releases it.
+
 ## Layout editor & settings
 
 Double-click the tray icon on Windows (or open <http://127.0.0.1:8765>):

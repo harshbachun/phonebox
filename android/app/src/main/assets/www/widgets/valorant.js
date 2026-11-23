@@ -165,24 +165,27 @@ W.valorant = {
     });
 
     // ---- Hold to talk: a lease the PC lets go of by itself if this phone stops renewing it ------------------------------
+    let press = null, holdTimer = null;
     let holding = false, lease = null, renewTimer = null;
-    const talkDown = async (e) => {
-      e.preventDefault();
-      if (holding) return;
-      try { talkBtn.setPointerCapture(e.pointerId); } catch (_) {}
+    const talkDown = async (gesture) => {
       holding = true; haptic(); renderTalk();
       try {
         const r = await post('/valorant/talk/down');
-        if (!holding) { if (r.body?.lease) post(`/valorant/talk/up?lease=${r.body.lease}`); return; }
+        if (press !== gesture) {
+          if (r.body?.lease) post(`/valorant/talk/up?lease=${r.body.lease}`).catch(() => {});
+          return;
+        }
         lease = r.body?.lease || null;
         renewTimer = setInterval(async () => {
           if (!lease) return;
-          try { const rr = await post(`/valorant/talk/renew?lease=${lease}`); if (rr.status === 404) talkUp(); } catch (_) {}
+          try { const rr = await post(`/valorant/talk/renew?lease=${lease}`); if (rr.status === 404 && press === gesture) talkUp(); } catch (_) {}
         }, 300);
-      } catch (_) { talkUp(); toast('PC not answering', 'err'); }
+      } catch (_) { if (press === gesture) { talkUp(); toast('PC not answering', 'err'); } }
       load();
     };
     const talkUp = () => {
+      clearTimeout(holdTimer);
+      press = null;
       if (!holding) return;
       holding = false;
       clearInterval(renewTimer); renewTimer = null;
@@ -191,8 +194,20 @@ W.valorant = {
       renderTalk();
       setTimeout(load, 150);
     };
-    talkBtn.addEventListener('pointerdown', talkDown);
-    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) talkBtn.addEventListener(ev, talkUp);
+    talkBtn.addEventListener('pointerdown', (e) => {
+      if (press || !e.isPrimary || e.button !== 0) return;
+      const gesture = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      press = gesture;
+      try { talkBtn.setPointerCapture(e.pointerId); } catch (_) {}
+      if (e.pointerType === 'mouse') talkDown(gesture);
+      else holdTimer = setTimeout(() => talkDown(gesture), 150);
+    });
+    talkBtn.addEventListener('pointermove', (e) => {
+      if (press?.id === e.pointerId && !holding && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) talkUp();
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      talkBtn.addEventListener(ev, (e) => { if (press?.id === e.pointerId) talkUp(); });
+    }
     talkBtn.addEventListener('contextmenu', (e) => e.preventDefault());
     const onHide = () => { if (document.visibilityState !== 'visible') talkUp(); };
     document.addEventListener('visibilitychange', onHide);
