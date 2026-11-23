@@ -24,7 +24,9 @@ import android.os.Vibrator
 import android.text.format.DateFormat
 import android.util.Log
 import android.view.Gravity
+import android.view.InputDevice
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -238,6 +240,63 @@ class MainActivity : Activity(), SensorEventListener {
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
                 View.SYSTEM_UI_FLAG_FULLSCREEN
         }
+    }
+
+    /**
+     * The panel is made for touch, so a press of the main mouse button is handed to the page as a finger: a click taps,
+     * a drag swipes between pages, a long press holds. A mouse shared from the computer (Input Leaf, Deskflow) sends its
+     * presses as ACTION_DOWN / ACTION_UP only, without the ACTION_BUTTON_PRESS / RELEASE the WebView makes mouse clicks
+     * from, so the page saw nothing at all (#425). The right and middle buttons, hovering and the wheel stay mouse events.
+     */
+    private var mouseAsFinger = false
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (Build.VERSION.SDK_INT < 23 || event.getToolType(0) != MotionEvent.TOOL_TYPE_MOUSE)
+            return super.dispatchTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_DOWN)
+            mouseAsFinger = event.buttonState and (MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY) == 0
+        if (!mouseAsFinger) return super.dispatchTouchEvent(event)
+        try {
+            return sendAsFinger(event, event.action)
+        } finally {
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) mouseAsFinger = false
+        }
+    }
+
+    /** The mouse event as a finger on the touch screen, with [action], handed to the page. */
+    private fun sendAsFinger(event: MotionEvent, action: Int): Boolean {
+        val n = event.pointerCount
+        val props = Array(n) { i ->
+            MotionEvent.PointerProperties().also { event.getPointerProperties(i, it); it.toolType = MotionEvent.TOOL_TYPE_FINGER }
+        }
+        val coords = Array(n) { i -> MotionEvent.PointerCoords().also { event.getPointerCoords(i, it) } }
+        val finger = MotionEvent.obtain(event.downTime, event.eventTime, action, n, props, coords, event.metaState, 0,
+            event.xPrecision, event.yPrecision, event.deviceId, event.edgeFlags, InputDevice.SOURCE_TOUCHSCREEN, event.flags)
+        try {
+            return super.dispatchTouchEvent(finger)
+        } finally {
+            finger.recycle()
+        }
+    }
+
+    /**
+     * A real mouse also reports its main button as ACTION_BUTTON_PRESS / RELEASE. While its press goes in as a finger
+     * (above), those are dropped; released while another button is still held, the finger is lifted there, since no
+     * ACTION_UP comes until every button is up. A main button pressed while another one was already held was not
+     * turned into a finger, so its button events go to the page as they are.
+     */
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (Build.VERSION.SDK_INT >= 23 && mouseAsFinger && event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE &&
+            (event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS || event.actionMasked == MotionEvent.ACTION_BUTTON_RELEASE) &&
+            event.actionButton == MotionEvent.BUTTON_PRIMARY
+        ) {
+            if (event.actionMasked == MotionEvent.ACTION_BUTTON_RELEASE && event.buttonState != 0) {
+                mouseAsFinger = false
+                sendAsFinger(event, MotionEvent.ACTION_UP)
+            }
+            return true
+        }
+        return super.dispatchGenericMotionEvent(event)
     }
 
     /** Volume up / down flip to the previous / next page (unless turned off in the settings). */

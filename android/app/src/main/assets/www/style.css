@@ -636,7 +636,8 @@ html.beat-3 .sess.busy .st, html.beat-4 .sess.shell .st, html.beat-2 .sess.waiti
 .ps-btn.danger { background: rgba(239, 68, 68, .18); color: #fca5a5; }
 .ps-btn.armed { background: var(--err); color: #fff; }
 .ps-btn:disabled { opacity: .35; }
-.ps-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; touch-action: pan-y; }
+/* lists scroll up and down; a sideways swipe on them goes on to the pager and turns the page (#445) */
+.ps-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; touch-action: pan-x pan-y; }
 .pi { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 11px; background: rgba(255, 255, 255, .04); min-height: 46px; }
 .pi .pid { font-size: 11px; color: var(--muted); flex: 0 0 64px; }
 .pi .lbl { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -774,7 +775,7 @@ html.beat-3 .sess.busy .st, html.beat-4 .sess.shell .st, html.beat-2 .sess.waiti
 .push-big .track { margin-top: 4px; }
 .push-gauge { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .push-gauge .g-dial { height: min(70cqh, 80cqw); }
-.push-list, .inbox { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 3px; touch-action: pan-y; }
+.push-list, .inbox { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 3px; touch-action: pan-x pan-y; }
 .pl-i { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, .035); border-left: 3px solid var(--lc, transparent); }
 .pl-l { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pl-v { color: var(--lc, var(--muted)); white-space: nowrap; font-weight: 600; }
@@ -838,7 +839,7 @@ html.beat-3 .sess.busy .st, html.beat-4 .sess.shell .st, html.beat-2 .sess.waiti
 /* ---------- checklist ---------- */
 .w-checklist { padding: 9px 12px; display: flex; flex-direction: column; gap: 4px; --c: #22c55e; }
 .w-checklist.all .w-sub { color: #22c55e; font-weight: 600; }
-.cl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; touch-action: pan-y; }
+.cl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; touch-action: pan-x pan-y; }
 .cl-i { display: flex; align-items: center; gap: 9px; text-align: start; padding: 5px 8px; border-radius: 9px; background: rgba(255, 255, 255, .035); font-size: 13px; }
 .cl-box { width: 18px; height: 18px; flex: 0 0 18px; border-radius: 5px; border: 1.5px solid var(--dim); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #06080b; }
 .cl-i.done .cl-box { background: #22c55e; border-color: #22c55e; }
@@ -989,6 +990,17 @@ html.beat-4 .obs-pill.on .obs-led { box-shadow: 0 0 34px rgba(239, 68, 68, .9); 
 .dc-note { display: flex; flex-direction: column; font-size: 12px; padding: 4px 8px; border-left: 3px solid #5865f2; background: rgba(255, 255, 255, .04); border-radius: 6px; }
 .dc-note span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-discord { padding: 9px 10px; display: flex; flex-direction: column; gap: 8px; }
+/* a large Discord widget grows its buttons, names and avatars with it, for a phone on a stand at desk distance (#420);
+   at the usual sizes each clamp stays at its minimum, the size given above */
+.w-discord .dc-where { font-size: clamp(16px, min(6cqmin, 3.4cqw), 26px); }
+/* the buttons share the top row with the channel name, so the widget's width limits them too */
+.w-discord .dc-btn { font-size: clamp(18px, min(6.5cqmin, 4cqw), 30px); padding: clamp(5px, min(1.6cqmin, 1cqw), 9px) clamp(9px, min(2.8cqmin, 1.7cqw), 15px); border-radius: clamp(10px, 3cqmin, 14px); }
+.w-discord .dc-members { gap: clamp(5px, 1.5cqmin, 10px); }
+.w-discord .dc-member { font-size: clamp(12px, 4.2cqmin, 20px); padding: clamp(3px, 1cqmin, 6px) clamp(8px, 2.4cqmin, 14px); gap: clamp(5px, 1.5cqmin, 9px); }
+.w-discord .dc-member .dc-ico { width: clamp(18px, 6.5cqmin, 34px); height: clamp(18px, 6.5cqmin, 34px); font-size: clamp(10px, 3.2cqmin, 16px); }
+.w-discord .dc-who { font-size: clamp(12px, 3.6cqmin, 17px); }
+.w-discord .dc-msgtext { font-size: clamp(13px, 4cqmin, 19px); }
+.w-discord .dc-msg .dc-ico, .w-discord .dc-msgav { width: clamp(26px, 7cqmin, 40px); height: clamp(26px, 7cqmin, 40px); font-size: clamp(11px, 3cqmin, 16px); }
 .w-steam { padding: 9px 12px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
 .w-steam .w-title { color: #79a9e8; }
 .st-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1142,7 +1154,7 @@ html.beat-4 .w-onair.on .oa-sign { box-shadow: 0 0 34px rgba(239, 68, 68, .9); }
 .hn-m { font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a column, so the list gets the height that is left and scrolls within it */
 .w-feeds { display: flex; flex-direction: column; }
-.fd-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; touch-action: pan-y; scrollbar-width: none; }
+.fd-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; touch-action: pan-x pan-y; scrollbar-width: none; }
 .fd-list::-webkit-scrollbar { display: none; }
 .fd-i { flex: none; height: 30px; min-width: 0; border-left: 2px solid transparent; padding-left: 6px; }
 /* the accent bar: an article this phone hasn't opened yet */

@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-TAG = "v0.9.28"
+TAG = "v0.9.29"
 
 
 def resources(apk):
@@ -25,7 +25,7 @@ def resources(apk):
     if html.count(marker) != 1:
         raise ValueError("Unexpected panel entry point in APK")
     assets["/"] = assets["/index.html"] = html.replace(marker,
-        b'<script src="demo.js" data-version="0.9.28-a52" data-panel></script>\n'
+        b'<script src="demo.js" data-version="0.9.29-a52" data-panel></script>\n'
         b'<script src="a52-sample.js"></script>\n' + marker)
     return assets
 
@@ -33,7 +33,7 @@ def resources(apk):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apk", type=Path, default=ROOT / "android/app/build/outputs/apk/debug/app-debug.apk")
-    parser.add_argument("--port", type=int, default=8798)
+    parser.add_argument("--port", type=int, default=8799)
     args = parser.parse_args()
     assets = resources(args.apk)
 
