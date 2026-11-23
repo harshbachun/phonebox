@@ -8,14 +8,15 @@ from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-TAG = "v0.9.29"
+# The release commit is part of this branch's history even in a clone without upstream tags.
+UPSTREAM_RELEASE = "1836f00579d18299d9ae3dcf96cd6962e5655f99"
 
 
 def resources(apk):
     with ZipFile(apk) as archive:
         assets = {"/" + name.removeprefix("assets/www/"): archive.read(name)
                   for name in archive.namelist() if name.startswith("assets/www/") and not name.endswith("/")}
-    demo = subprocess.check_output(["git", "show", TAG + ":tools/pages/demo.js"], cwd=ROOT)
+    demo = subprocess.check_output(["git", "show", UPSTREAM_RELEASE + ":tools/pages/demo.js"], cwd=ROOT)
     assets["/demo.js"] = demo
     assets["/a52-sample.js"] = Path(__file__).with_name("a52-sample.js").read_bytes()
     for name in ("templates.json", "widgets.json"):

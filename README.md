@@ -2,6 +2,8 @@
 
 <h1 align="center">PhoneBox</h1>
 
+The Galaxy A52 comparison build includes the custom and official Discord pages, A52 quota bars and VALORANT controls. [Build record and desktop preview](docs/A52-0.9.29.md)
+
 <p align="center">
   <b>English</b> ·
   <a href="docs/README.tr.md">Türkçe</a> ·
