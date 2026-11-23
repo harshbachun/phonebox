@@ -2,6 +2,8 @@
 
 <h1 align="center">PhoneBox</h1>
 
+The A52 fork uses a custom Android panel. Its Windows agent supplies live Codex readings to the original quota bars. [Installed quota update and verification](docs/A52-AI-QUOTAS.md)
+
 <p align="center">
   <b>English</b> ·
   <a href="docs/README.tr.md">Türkçe</a> ·
