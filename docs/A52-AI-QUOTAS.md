@@ -24,6 +24,12 @@ The Windows x64 publish contained seven files. Only `PhoneBoxAgent.exe` differed
 
 Verification used the live agent API and compared the served assets. A new Discord call or VALORANT match was outside this quota-only installation.
 
+## Provider artwork
+
+Commit `9b57810` installs the supplied Claude SVG (original orange `#d97757`) and ChatGPT knot (white `#ffffff`) in the Claude and Codex quota-bar headers. Both marks use the existing 17 px header size. Each image has an empty alt attribute because the adjacent text names the provider.
+
+The A52 APK was updated in place, and the Windows preview serves the same SVGs. The files that differed inside the Android package were the two SVGs, the quota-card renderer and its stylesheet. The installed APK and executable matched their builds by SHA-256, the settings file retained its original hash, and the agent continued to return live Codex quotas. Verified the logo colors in the desktop preview. The phone WebView was hidden at the time of the visual check.
+
 ## Local recovery
 
 The private backups remain on the installation PC. The previous executable is `%LOCALAPPDATA%\PhoneBox\PhoneBoxAgent.before-quotas-20261123-202801.exe`. The settings backup is `%APPDATA%\PhoneBox\config.before-quotas-20261123-202801.json`. Turning off **Read live Codex quotas** switches quota selection back to the previous local/CodexBar path.
