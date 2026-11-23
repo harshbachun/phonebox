@@ -42,6 +42,12 @@ Add a **Discord** widget to a page in the editor. Options:
 
 Without **Control** the widget only displays state. Joining works only for voice channels the agent already listed.
 
+### A52 full-page voice controls
+
+With `layout: "page"`, the call bar shows a grey microphone and headphones when the mic and sound are on. Muting or deafening switches the corresponding control to its red slashed icon. Member tiles use the same slashed icons, with deafened taking precedence when both flags are set.
+
+The four supplied SVGs live in `android/app/src/main/assets/www/widgets/discord-voice-icons.js`. The Discord page in `widgets/pc.js` selects them from Discord's reported state. Rebuild and install the Android APK to update the phone. The desktop layout preview embeds the same modules when the Windows agent is built.
+
 ## What is requested
 
 The login asks for these Discord permissions, all of them on your own account and only through the local app:
