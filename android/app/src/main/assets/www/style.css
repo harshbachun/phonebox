@@ -1476,9 +1476,9 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 @container (max-width: 560px) { .vl-row { grid-template-columns: 1fr; } }
 
 /* ---------- A52 fork: the Mute key's LED ----------
-   Muted = pure red #ff0000 (every red subpixel at full, green and blue off) with no glow, and the key itself no
-   longer brightens, so only the LED's own pixels change. Unmuted it stays the grey dot; other toggle keys keep the
-   green LED. (Idle dim's black layer still covers it like the rest of the panel.) */
+   Muted = pure red #ff0000 (every red subpixel at full, green and blue off) with the original 9px glow, now red,
+   and the key itself no longer brightens. Unmuted it stays the grey dot; other toggle keys keep the green LED.
+   (Idle dim's black layer still covers it like the rest of the panel.) */
 .key.toggle[data-id="mute"].on { filter: none; }
-.key.toggle[data-id="mute"].on::before { background: #ff0000; box-shadow: none; }
-.key.k-cover.toggle[data-id="mute"].on::before { background: #ff0000; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
+.key.toggle[data-id="mute"].on::before { background: #ff0000; box-shadow: 0 0 9px #ff0000; }
+.key.k-cover.toggle[data-id="mute"].on::before { background: #ff0000; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55), 0 0 9px #ff0000; }
