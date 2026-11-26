@@ -183,6 +183,7 @@ body.night #pagePauseOverlay { display: none; }
 body.offline #offline { display: flex; align-items: center; gap: 5px; }
 .ico { width: 1em; height: 1em; vertical-align: -0.15em; flex: none; }
 .ico.m { margin-right: .35em; }
+img.ico-img { object-fit: contain; }
 
 /* ---------- calm page switching ---------- */
 #navCard {
@@ -1374,10 +1375,15 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .q-bar-reset { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 @container (max-height: 200px) { .q-bar-foot { display: none; } .q-bars { gap: 6px; } }
 
+/* Discord closed: the page keeps its layout, greyed out and not pressable */
+.dcp.off { filter: grayscale(1); opacity: .45; }
+.dcp.off button { pointer-events: none; }
+
 /* ---------- A52 fork: Valorant page (W.valorant) ---------- */
 .w-valorant.vl-box { background: transparent; border-color: transparent; box-shadow: none; padding: 0; }
 .vl-box { --vl-red: #ff4655; --vl-ink: #ece8e1; --vl-panel: #0f1923; --vl-panel-2: #16232f; --vl-line: rgba(236, 232, 225, .1); --vl-muted: #8b978f; --vl-green: #3ee6a3; --vl-amber: #f5b942; }
-.vl-scroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; color: var(--vl-ink); scrollbar-width: none; }
+/* vertical only, and only vertical overscroll stays here: a sideways swipe goes on to the page pager */
+.vl-scroll { height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior-x: auto; overscroll-behavior-y: contain; touch-action: pan-x pan-y; display: flex; flex-direction: column; gap: 8px; color: var(--vl-ink); scrollbar-width: none; }
 .vl-scroll::-webkit-scrollbar { display: none; }
 .vl-i { display: inline-flex; width: 1em; height: 1em; flex: none; }
 .vl-i svg { width: 100%; height: 100%; display: block; }
@@ -1388,7 +1394,7 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .vl-match.off { opacity: .75; }
 .vl-thumb { flex: none; width: 48px; height: 48px; border-radius: 10px; overflow: hidden; background: var(--vl-panel-2); display: grid; place-items: center; }
 .vl-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.vl-thumb-letter { font-size: 22px; font-weight: 800; color: var(--vl-red); }
+.vl-thumb img.vl-logo { width: 62%; height: 62%; object-fit: contain; }
 .vl-mtext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .vl-brand { font-size: 10px; font-weight: 800; letter-spacing: .16em; color: var(--vl-red); }
 .vl-m1 { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1402,7 +1408,7 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 /* 2 · controls fill the rest of the first screen; Talk is the biggest and sits by the right thumb */
 .vl-controls { flex: none; height: calc(100cqh - 88px); min-height: 150px; display: grid; grid-template-columns: .8fr 1fr 1.35fr; gap: 8px; }
 .vl-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: 18px; border: 1px solid var(--vl-line);
-  background: var(--vl-panel); color: var(--vl-ink); font: inherit; text-align: center; padding: 10px; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 0; }
+  background: var(--vl-panel); color: var(--vl-ink); font: inherit; text-align: center; padding: 10px; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 0; }
 .vl-btn .vl-i, .vl-btn .vl-mute-icon { font-size: 40px; }
 .vl-btn b { font-size: 18px; font-weight: 800; letter-spacing: .02em; }
 .vl-btn small { font-size: 12px; color: var(--vl-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1423,35 +1429,20 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .vl-mute.on small { color: #ffe3e5; }
 .vl-mute.unknown { border-color: var(--vl-line); color: var(--vl-muted); }
 
-/* 3 · map, performance, ping */
-.vl-row { flex: none; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 8px; min-height: 0; }
+/* cards */
 .vl-card { border-radius: 14px; background: var(--vl-panel); border: 1px solid var(--vl-line); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .vl-h { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--vl-muted); }
 .vl-empty { font-size: 13px; color: var(--vl-muted); }
 .vl-note { font-size: 11px; color: var(--vl-muted); line-height: 1.35; }
 .vl-note.warn { color: var(--vl-amber); }
-.vl-map-img { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--vl-panel-2); }
-.vl-map-img img { width: 100%; height: 100%; object-fit: cover; }
-.vl-map-name { position: absolute; left: 8px; bottom: 6px; font-size: 14px; font-weight: 800; color: #fff; text-shadow: 0 1px 4px #000; }
-.vl-map-missing { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 10px; border: 1px dashed var(--vl-line); }
-.vl-map-missing b { font-size: 18px; }
-.vl-map-missing small { font-size: 12px; color: var(--vl-muted); }
 .vl-kvs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .vl-kv { display: flex; flex-direction: column; min-width: 0; }
 .vl-kv small { font-size: 11px; color: var(--vl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vl-kv b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .vl-kv.warn b { color: var(--vl-amber); }
 .vl-kv.big b { font-size: 26px; }
-.vl-chart { height: 38px; }
-.vl-spark { width: 100%; height: 100%; display: block; overflow: visible; }
-.vl-spark path { fill: none; stroke: var(--vl-red); stroke-width: 2; }
-.vl-spark .vl-miss { stroke: rgba(245, 185, 66, .7); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.vl-vram { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
-.vl-vram small { color: var(--vl-muted); }
-.vl-bar { height: 8px; border-radius: 4px; background: rgba(236, 232, 225, .08); overflow: hidden; }
-.vl-bar > i { display: block; height: 100%; width: 0; background: var(--vl-ink); border-radius: 4px; }
 
-/* 4 · post-match stats */
+/* 3 · post-match stats */
 .vl-stats { flex: none; margin-bottom: 18px; } /* clear of the page dots */
 .vl-refresh { border: 0; background: none; color: var(--vl-muted); font-size: 18px; padding: 0 2px; }
 .vl-last { display: flex; flex-direction: column; gap: 8px; }
@@ -1473,7 +1464,6 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .vl-viewer-title { position: absolute; left: 16px; top: 10px; font-size: 16px; font-weight: 800; color: #ece8e1; text-shadow: 0 1px 4px #000; }
 .vl-viewer-close { position: absolute; right: 12px; top: 8px; width: 48px; height: 48px; border-radius: 24px; border: 0; background: rgba(15, 25, 35, .8); color: #ece8e1; font-size: 24px; display: grid; place-items: center; }
 .vl-viewer-missing { color: #8b978f; font-size: 15px; }
-@container (max-width: 560px) { .vl-row { grid-template-columns: 1fr; } }
 
 /* ---------- A52 fork: the Mute key's LED ----------
    Muted = pure red #ff0000 (every red subpixel at full, green and blue off) with the original 9px glow, now red,

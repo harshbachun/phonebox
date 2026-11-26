@@ -4,31 +4,31 @@ plugins {
 }
 
 // Release signing: values come from ~/.gradle/gradle.properties or environment variables
-// (PHONEBOX_STORE_FILE, PHONEBOX_STORE_PASSWORD, PHONEBOX_KEY_ALIAS, PHONEBOX_KEY_PASSWORD).
+// (DESKMATE_STORE_FILE, DESKMATE_STORE_PASSWORD, DESKMATE_KEY_ALIAS, DESKMATE_KEY_PASSWORD).
 // Without them, release builds fall back to the debug key so the project still builds anywhere.
 fun signingValue(name: String): String? =
     (project.findProperty(name) as String?) ?: System.getenv(name)
 
 android {
-    namespace = "net.oxog.phonebox.deskpanel"
+    namespace = "app.deskmate.panel"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "net.oxog.phonebox.deskpanel"
+        applicationId = "app.deskmate.panel"
         minSdk = 21 // Android 5.0; see CONTRIBUTING.md before changing it
         targetSdk = 35
-        versionCode = 45
-        versionName = "0.9.24-a52"
+        versionCode = 100
+        versionName = "1.0.0"
     }
 
     signingConfigs {
-        val storeFile = signingValue("PHONEBOX_STORE_FILE")
+        val storeFile = signingValue("DESKMATE_STORE_FILE")
         if (storeFile != null && file(storeFile).exists()) {
             create("release") {
                 this.storeFile = file(storeFile)
-                storePassword = signingValue("PHONEBOX_STORE_PASSWORD")
-                keyAlias = signingValue("PHONEBOX_KEY_ALIAS")
-                keyPassword = signingValue("PHONEBOX_KEY_PASSWORD")
+                storePassword = signingValue("DESKMATE_STORE_PASSWORD")
+                keyAlias = signingValue("DESKMATE_KEY_ALIAS")
+                keyPassword = signingValue("DESKMATE_KEY_PASSWORD")
             }
         }
     }

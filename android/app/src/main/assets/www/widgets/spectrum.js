@@ -20,7 +20,7 @@ function frame(d) {
   D.spectrumAt = Date.now();
   emit('spectrum');
 }
-window.addEventListener('phonebox-spectrum', (e) => frame(e.detail));
+window.addEventListener('deskmate-spectrum', (e) => frame(e.detail));
 
 // Every mounted Spectrum bars widget, with its page. A widget counts as on screen only while it is really visible:
 // not under the night screen, on the current page, and not in a Smart Stack card that is not showing. Mounted is not

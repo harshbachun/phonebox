@@ -1,13 +1,12 @@
-import { API, D, PANEL_HEADERS, api, gpuOf, h, haptic, labelled, toast } from '../main.js';
+import { API, PANEL_HEADERS, api, h, haptic, labelled, toast } from '../main.js';
 import { W } from '../registry.js';
 import { every } from './helpers.js';
 
-// A52 fork: the Valorant page. One scrolling column, built for one hand during a match:
-//   1. match status (your own Riot presence, Discord-Rich-Presence style)
+// Deskmate: the Valorant page. One scrolling column, built for one hand during a match:
+//   1. match status (your own Riot presence, Discord-Rich-Presence style; tap it for the map's callout image)
 //   2. Save clip · Hold to talk · Mic mute, big, filling the rest of the first screen
-//   3. map callout, performance, ping probe
-//   4. post-match stats
-// Everything comes from /api/valorant (agent: ValorantHost.cs); the telemetry reuses the panel's own state.
+//   3. post-match stats
+// Everything comes from /api/valorant (agent: ValorantHost.cs).
 // Nothing here is invented: a field the computer did not report shows as unavailable.
 
 const SVG = (inner, cls = '') => {
@@ -34,26 +33,8 @@ const post = async (path) => {
   return { ok: r.ok, status: r.status, body };
 };
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-const pct = (v) => (v == null ? '—' : Math.round(v) + '%');
-const deg = (v) => (v == null ? '—' : Math.round(v) + '°C');
+const logo = () => { const im = new Image(); im.alt = ''; im.className = 'vl-logo'; im.src = 'valorant.png'; return im; };
 const mapUrl = (name) => `${API}/valorant/map?name=${encodeURIComponent(name)}`;
-
-/** A small line chart as an SVG string: values (null = gap / unanswered), fixed or auto max. */
-function spark(values, { max = null, lost = false } = {}) {
-  const n = values.length;
-  if (!n) return '';
-  const top = max ?? Math.max(1, ...values.filter((v) => v != null)) * 1.15;
-  const x = (i) => (n === 1 ? 100 : (i / (n - 1)) * 100);
-  const y = (v) => 30 - Math.min(1, v / top) * 28;
-  let d = '', pen = false;
-  values.forEach((v, i) => {
-    if (v == null) { pen = false; return; }
-    d += `${pen ? 'L' : 'M'}${x(i).toFixed(2)} ${y(v).toFixed(2)} `;
-    pen = true;
-  });
-  const misses = lost ? values.map((v, i) => (v == null ? `<line x1="${x(i).toFixed(2)}" y1="2" x2="${x(i).toFixed(2)}" y2="30" class="vl-miss"/>` : '')).join('') : '';
-  return `<svg viewBox="0 0 100 32" preserveAspectRatio="none" class="vl-spark">${misses}<path d="${d}" vector-effect="non-scaling-stroke"/></svg>`;
-}
 
 /** Full-screen, pinch-zoomable map image (tap ✕ or the dark edge to close). */
 function openMapViewer(name) {
@@ -103,8 +84,6 @@ W.valorant = {
   create(box) {
     box.classList.add('vl-box');
     let data = null, loaded = false, failed = false;
-    const gpuHist = [];
-    let lastHistAt = 0;
 
     // ---- 1. match status ------------------------------------------------------------------------------------------
     const thumb = h('div', 'vl-thumb');
@@ -127,20 +106,12 @@ W.valorant = {
     // left to right: emergency mute (its own look, out of the way), Save clip, then Hold to talk, the biggest, by the right thumb
     const controls = h('section', 'vl-controls', muteBtn, clipBtn, talkBtn);
 
-    // ---- 3. map, performance, ping ------------------------------------------------------------------------------------
-    const mapBody = h('div', 'vl-map-body');
-    const mapCard = h('section', 'vl-card vl-map', h('div', 'vl-h', 'Map'), mapBody);
-    const perfBody = h('div', 'vl-perf-body');
-    const perfCard = h('section', 'vl-card vl-perf', h('div', 'vl-h', 'Performance'), perfBody);
-    const pingBody = h('div', 'vl-ping-body');
-    const pingCard = h('section', 'vl-card vl-ping', h('div', 'vl-h', 'Ping to my server'), pingBody);
-
-    // ---- 4. post-match stats ------------------------------------------------------------------------------------------
+    // ---- 3. post-match stats ------------------------------------------------------------------------------------------
     const statsBody = h('div', 'vl-stats-body');
     const refresh = labelled(h('button', 'vl-refresh', SVG(ICON.refresh)), 'Check the match history now');
     const statsCard = h('section', 'vl-card vl-stats', h('div', 'vl-h', 'After the match', refresh), statsBody);
 
-    const scroll = h('div', 'vl-scroll', match, controls, h('div', 'vl-row', mapCard, perfCard, pingCard), statsCard);
+    const scroll = h('div', 'vl-scroll', match, controls, statsCard);
     box.append(scroll);
 
     const load = async () => {
@@ -273,7 +244,7 @@ W.valorant = {
       thumb.replaceChildren();
       if (!loaded) { mLine1.textContent = failed ? 'PC not answering' : 'Connecting…'; mLine2.textContent = ''; return; }
       if (!g?.running) {
-        thumb.append(h('span', 'vl-thumb-letter', 'V'));
+        thumb.append(logo());
         mLine1.textContent = 'Not running';
         mLine2.textContent = 'Opens by itself when VALORANT starts';
         match.className = 'vl-match off';
@@ -281,7 +252,7 @@ W.valorant = {
       }
       match.className = 'vl-match' + (p?.loop === 'INGAME' ? ' live' : '');
       if (p?.map && p.mapImage) { const im = new Image(); im.alt = ''; im.src = mapUrl(p.map); thumb.append(im); }
-      else thumb.append(h('span', 'vl-thumb-letter', (p?.map || 'V').charAt(0)));
+      else thumb.append(logo());
       if (!p) {
         mLine1.textContent = 'In VALORANT';
         mLine2.textContent = data.presenceError || 'Waiting for the Riot Client';
@@ -290,46 +261,6 @@ W.valorant = {
       mLine1.textContent = [p.mode, p.map].filter(Boolean).join(' · ') || 'VALORANT';
       const score = p.ally != null && p.enemy != null ? ` · ${p.ally}–${p.enemy}` : '';
       mLine2.textContent = p.status + score;
-    };
-    const renderMap = () => {
-      const p = data?.presence;
-      mapBody.replaceChildren();
-      if (!p?.map) { mapBody.append(h('div', 'vl-empty', 'The map shows from agent select on')); return; }
-      if (p.mapImage) {
-        const im = new Image(); im.alt = `${p.map} callouts`; im.src = mapUrl(p.map);
-        const b = labelled(h('button', 'vl-map-img', im, h('span', 'vl-map-name', p.map)), `${p.map}: open full screen`);
-        b.addEventListener('click', () => openMapViewer(p.map));
-        mapBody.append(b);
-      } else {
-        mapBody.append(h('div', 'vl-map-missing', h('b', null, p.map), h('small', null, 'No callout image yet')));
-      }
-    };
-    const renderPerf = () => {
-      const s = D.state, g = gpuOf(s), cpuT = s?.pc?.cpuTemp;
-      if (g?.util != null && Date.now() - lastHistAt > 900) { gpuHist.push(g.util); lastHistAt = Date.now(); if (gpuHist.length > 90) gpuHist.shift(); }
-      const vram = g?.vramTotal ? `${g.vramUsed?.toFixed(1) ?? '—'} / ${g.vramTotal.toFixed(1)} GB` : '—';
-      const vramPct = g?.vramTotal ? Math.min(100, (100 * (g.vramUsed || 0)) / g.vramTotal) : null;
-      const cell = (label, value, warn) => h('div', 'vl-kv' + (warn ? ' warn' : ''), h('small', null, label), h('b', null, value));
-      const bar = h('div', 'vl-bar', h('i'));
-      if (vramPct != null) bar.firstChild.style.width = vramPct.toFixed(1) + '%';
-      const chart = h('div', 'vl-chart'); chart.innerHTML = spark(gpuHist, { max: 100 });
-      perfBody.replaceChildren(
-        h('div', 'vl-kvs', cell('GPU load', pct(g?.util)), cell('GPU temp', deg(g?.temp), g?.temp >= 83),
-          cell('CPU temp', cpuT == null ? 'needs LHM' : deg(cpuT), cpuT >= 90)),
-        chart,
-        h('div', 'vl-vram', h('small', null, 'VRAM (dedicated)'), h('b', null, vram)), bar);
-      if (!g) perfBody.prepend(h('div', 'vl-empty', 'No GPU data from the PC yet'));
-    };
-    const renderPing = () => {
-      const p = data?.ping;
-      if (!p?.host) { pingBody.replaceChildren(h('div', 'vl-empty', 'Set a host in Settings › General › VALORANT')); return; }
-      const chart = h('div', 'vl-chart'); chart.innerHTML = spark(p.samples || [], { lost: true });
-      pingBody.replaceChildren(
-        h('div', 'vl-kvs', h('div', 'vl-kv', h('small', null, 'Last'), h('b', null, p.lastMs == null ? 'no reply' : `${p.lastMs} ms`)),
-          h('div', 'vl-kv', h('small', null, 'Average'), h('b', null, p.avgMs == null ? '—' : `${p.avgMs} ms`)),
-          h('div', 'vl-kv' + (p.lossPct > 0 ? ' warn' : ''), h('small', null, 'Unanswered'), h('b', null, p.lossPct == null ? '—' : `${p.lossPct}%`))),
-        chart,
-        h('div', 'vl-note', `ICMP probe to ${p.host} every ${p.everySec} s · last ${(p.windowSec || 0) < 60 ? (p.windowSec || 0) + ' s' : Math.round(p.windowSec / 6) / 10 + ' min'} (${p.unanswered}/${p.sent} unanswered). Not VALORANT's own packet loss.`));
     };
     const renderStats = () => {
       const st = data?.stats;
@@ -356,11 +287,11 @@ W.valorant = {
       if (st.error) statsBody.append(h('div', 'vl-note warn', st.error));
       else if (st.updatedAt) statsBody.append(h('div', 'vl-note', `Match history checked ${mmss(Date.now() - st.updatedAt)} ago · ${st.account || ''}`));
     };
-    const render = () => { renderMatch(); renderTalk(); renderMute(); renderMap(); renderPerf(); renderPing(); renderStats(); clipSub.textContent = (data?.clip?.key || 'f10').toUpperCase() + ' · Medal'; };
+    const render = () => { renderMatch(); renderTalk(); renderMute(); renderStats(); clipSub.textContent = (data?.clip?.key || 'f10').toUpperCase() + ' · Medal'; };
 
     render();
     return {
-      update(kind) { if (kind === 'tick') poll(); else renderPerf(); renderMatch(); },
+      update(kind) { if (kind === 'tick') poll(); renderMatch(); },
       destroy() { talkUp(); seen.disconnect(); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('blur', talkUp); },
     };
   },

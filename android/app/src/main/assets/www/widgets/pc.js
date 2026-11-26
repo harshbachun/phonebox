@@ -5,15 +5,15 @@ import { canKillAnywhere, dialEl, every } from './helpers.js';
 
 // ---------------------------------------------------------------- phone & PC
 // Your own HTML / CSS / JavaScript in a sandboxed iframe (no access to the panel, the agent or the phone). It gets
-// the panel's data through window.phonebox: phonebox.on('state' | 'push' | 'weather' | 'work' | 'quotas', fn),
-// phonebox.data, and may ask for phonebox.run(shortcutId) or phonebox.goto(page).
+// the panel's data through window.deskmate: deskmate.on('state' | 'push' | 'weather' | 'work' | 'quotas', fn),
+// deskmate.data, and may ask for deskmate.run(shortcutId) or deskmate.goto(page).
 export const HTML_PRELUDE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark"><style>:root{color-scheme:dark}html,body{margin:0;height:100%;background:transparent;color:#eef2f6;font-family:Roboto,"Segoe UI",system-ui,sans-serif;overflow:hidden}</style>
-<script>(function(){var subs={},data={};window.phonebox={data:data,
+<script>(function(){var subs={},data={};window.deskmate={data:data,
 on:function(k,f){(subs[k]=subs[k]||[]).push(f);if(data[k]!==undefined)try{f(data[k])}catch(e){console.error(e)}},
-run:function(id){parent.postMessage({phonebox:'run',id:String(id)},'*')},
-goto:function(p){parent.postMessage({phonebox:'goto',page:p},'*')}};
-addEventListener('message',function(e){var m=e.data;if(!m||m.phonebox!=='data')return;data[m.kind]=m.value;(subs[m.kind]||[]).forEach(function(f){try{f(m.value)}catch(err){console.error(err)}})});})();<\/script>`;
+run:function(id){parent.postMessage({deskmate:'run',id:String(id)},'*')},
+goto:function(p){parent.postMessage({deskmate:'goto',page:p},'*')}};
+addEventListener('message',function(e){var m=e.data;if(!m||m.deskmate!=='data')return;data[m.kind]=m.value;(subs[m.kind]||[]).forEach(function(f){try{f(m.value)}catch(err){console.error(err)}})});})();<\/script>`;
 export const HTML_KINDS = ['state', 'push', 'weather', 'work', 'quotas'];
 
 W.html = {
@@ -25,12 +25,12 @@ W.html = {
     frame.setAttribute('referrerpolicy', 'no-referrer');
     frame.srcdoc = HTML_PRELUDE + (o.html || '');
     box.append(frame);
-    const send = (kind) => { if (D[kind] != null) try { frame.contentWindow?.postMessage({ phonebox: 'data', kind, value: D[kind] }, '*'); } catch (_) {} };
+    const send = (kind) => { if (D[kind] != null) try { frame.contentWindow?.postMessage({ deskmate: 'data', kind, value: D[kind] }, '*'); } catch (_) {} };
     frame.addEventListener('load', () => HTML_KINDS.forEach(send));
     const onMsg = (e) => {
       if (e.source !== frame.contentWindow || !e.data) return;
-      if (e.data.phonebox === 'run' && (cfg.shortcuts || []).some((s) => s.id === e.data.id)) { haptic(); api('/run/' + encodeURIComponent(e.data.id), 'POST', 5000).catch(() => toast(t('panel.pcNoAnswer'), 'err')); }
-      if (e.data.phonebox === 'goto') gotoPageRef(e.data.page);
+      if (e.data.deskmate === 'run' && (cfg.shortcuts || []).some((s) => s.id === e.data.id)) { haptic(); api('/run/' + encodeURIComponent(e.data.id), 'POST', 5000).catch(() => toast(t('panel.pcNoAnswer'), 'err')); }
+      if (e.data.deskmate === 'goto') gotoPageRef(e.data.page);
     };
     window.addEventListener('message', onMsg);
     return {
@@ -246,6 +246,16 @@ function discordPage(box, o) {
   const dimFrom = Math.max(1, +o.dimFrom || 4);
   let data = null, lastKey = '', busy = null, picked = null; // picked: the server whose channels are shown
   let pendingVoice = null, readVersion = 0;
+  // Deskmate: the servers from the last time Discord was running, so the page keeps its shape (greyed out) while it is closed
+  let lastGood = null, lastSaved = '';
+  try { lastGood = JSON.parse(localStorage.getItem('dcp-last') || 'null'); } catch (_) {}
+  const remember = (s) => {
+    const keep = { user: s.user, channels: s.channels.map(({ id, name, guild, guildId, guildIcon }) => ({ id, name, guild, guildId, guildIcon })) };
+    const json = JSON.stringify(keep);
+    if (json === lastSaved) return;
+    lastGood = keep; lastSaved = json;
+    try { localStorage.setItem('dcp-last', json); } catch (_) {}
+  };
   const load = async () => {
     const version = ++readVersion;
     try {
@@ -310,9 +320,12 @@ function discordPage(box, o) {
     lastKey = key;
     if (!data) { box.replaceChildren(h('div', 'empty', t('w.loading'))); return; }
     if (!data.enabled) { box.replaceChildren(h('div', 'empty', t('w.discord.turnOn'))); return; }
-    const s = data.snapshot;
-    if (!s.connected) { box.replaceChildren(h('div', 'empty', s.error || t('panel.connecting'))); return; }
-    const ctl = data.control;
+    const live = data.snapshot;
+    const off = !live.connected; // Discord closed (or still connecting): same page, greyed out, nothing to press
+    if (!off && live.channels?.length) remember(live);
+    if (off) picked = null;
+    const s = off ? { user: lastGood?.user, channels: lastGood?.channels || [], members: [], channelId: null, muted: false, deafened: false } : live;
+    const ctl = off ? null : data.control;
     const inCall = !!s.channelId;
     const muted = pendingVoice?.muted ?? s.muted;
     const deafened = pendingVoice?.deafened ?? s.deafened;
@@ -327,7 +340,7 @@ function discordPage(box, o) {
       h('b', 'dcp-name', s.user || 'Discord'),
       inCall
         ? h('span', 'dcp-where on', dcpIcon('speaker'), h('span', 'dcp-wtext', [s.channelName, curChan?.guild].filter(Boolean).join(' / ') + (who ? ' · ' + who : '')))
-        : h('span', 'dcp-where', 'Not in a voice channel'));
+        : h('span', 'dcp-where', off ? (live.error || "Discord isn't running") : 'Not in a voice channel'));
 
     // the call stage: one tile per person in the channel
     const stage = h('div', 'dcp-stage' + (inCall ? '' : ' idle'));
@@ -343,6 +356,8 @@ function discordPage(box, o) {
       }));
     } else if (inCall) {
       stage.append(h('div', 'dcp-idle', h('b', null, s.channelName || 'Voice'), h('span', null, 'Just you here')));
+    } else if (off) {
+      stage.append(h('div', 'dcp-idle', h('b', null, 'Discord is closed'), h('span', null, 'This page wakes up when you open Discord')));
     } else {
       stage.append(h('div', 'dcp-idle', h('b', null, 'Quiet for now'), h('span', null, 'Pick a server to join a voice channel')));
     }
@@ -378,17 +393,18 @@ function discordPage(box, o) {
       })));
     } else {
       side.append(h('div', 'dcp-label', 'Servers'));
-      if (!mine.length) side.append(h('div', 'empty', 'None of your favourite servers were found'));
+      if (!mine.length) side.append(h('div', 'empty', off ? 'Your servers show here once Discord has run' : 'None of your favourite servers were found'));
       side.append(...mine.map((g, i) => {
         const b = h('button', 'dcp-server' + (i + 1 >= dimFrom ? ' dim' : '') + (g === here ? ' here' : ''),
           h('span', 'dcp-pill'),
           avatar(g.icon && img('guild', g.id, g.icon), g.name, 'dcp-gico'),
           h('span', 'dcp-stext', h('b', null, g.name), h('small', null, t(g.chans.length === 1 ? 'w.discord.channel' : 'w.discord.channels', { n: g.chans.length }))));
-        b.addEventListener('click', () => { haptic(); picked = g.id; render(true); });
+        if (off) b.disabled = true;
+        else b.addEventListener('click', () => { haptic(); picked = g.id; render(true); });
         return b;
       }));
     }
-    box.replaceChildren(h('div', 'dcp', h('div', 'dcp-call', head, stage, bar), side));
+    box.replaceChildren(h('div', 'dcp' + (off ? ' off' : ''), h('div', 'dcp-call', head, stage, bar), side));
   };
   const tick = every(1500, async () => { if (!busy) { await load(); render(); } });
   return { update: () => { tick(); render(); } };

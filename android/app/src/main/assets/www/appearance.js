@@ -99,5 +99,5 @@
       element.style.padding = 'max(' + n + ', env(safe-area-inset-top)) max(' + n + ', env(safe-area-inset-right)) max(' + n + ', 17px, env(safe-area-inset-bottom)) max(' + n + ', env(safe-area-inset-left))';
     } else element.style.padding = '';
   }
-  globalThis.PhoneBoxAppearance = Object.freeze({ presets, fonts, resolve, widget, page });
+  globalThis.DeskmateAppearance = Object.freeze({ presets, fonts, resolve, widget, page });
 })();
